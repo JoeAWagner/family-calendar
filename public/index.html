@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Family Calendar</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div id="clock">
+        <div id="time">--:--</div>
+        <div id="date">—</div>
+      </div>
+      <div id="weather" class="hidden">
+        <div id="wIcon">☀️</div>
+        <div id="wInfo">
+          <div id="wTemp">—</div>
+          <div id="wHiLo">—</div>
+        </div>
+      </div>
+      <nav>
+        <button data-view="agenda" class="active">Agenda</button>
+        <button data-view="week">Week</button>
+        <button data-view="month">Month</button>
+        <button data-view="list">🛒 Lists</button>
+        <button data-view="doodle">Doodle</button>
+        <button id="addBtn">＋ Add</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- Agenda -->
+      <section id="agenda" class="view active"></section>
+
+      <!-- Week -->
+      <section id="week" class="view">
+        <div id="weekGrid"></div>
+      </section>
+
+      <!-- Reminders lists (Shopping / Costco / …) -->
+      <section id="list" class="view">
+        <div id="listSelector"></div>
+        <div id="listHeader">
+          <h2 id="listTitle">Shopping</h2>
+          <span id="listCount"></span>
+        </div>
+        <div id="addItemRow">
+          <input id="newItem" type="text" inputmode="none" placeholder="Add an item…" />
+          <button id="addItemBtn" class="btn">Add</button>
+        </div>
+        <div id="listItems"></div>
+      </section>
+
+      <!-- Month grid -->
+      <section id="month" class="view">
+        <div id="monthLabel"></div>
+        <div id="monthGrid"></div>
+      </section>
+
+      <!-- Doodle board -->
+      <section id="doodle" class="view">
+        <div id="doodleTools">
+          <button data-color="#111">⚫</button>
+          <button data-color="#e23b3b">🔴</button>
+          <button data-color="#2b7de9">🔵</button>
+          <button data-color="#2bb673">🟢</button>
+          <button data-color="#f5a623">🟠</button>
+          <button id="eraser">Eraser</button>
+          <button id="clearDoodle">Clear</button>
+        </div>
+        <canvas id="doodleCanvas"></canvas>
+      </section>
+    </main>
+
+    <!-- Connect prompt -->
+    <div id="connect" class="modal hidden">
+      <div class="card">
+        <h2>Connect your Google Calendar</h2>
+        <p>Sign in once to sync events.</p>
+        <a class="btn" href="/api/auth/login">Connect Google</a>
+      </div>
+    </div>
+
+    <!-- Add / view event -->
+    <div id="eventModal" class="modal hidden">
+      <div class="card">
+        <h2 id="eventModalTitle">New event</h2>
+        <label>Title <input id="evTitle" type="text" inputmode="none" placeholder="Soccer practice" /></label>
+        <label><input id="evAllDay" type="checkbox" /> All day</label>
+        <label>Date <input id="evDate" type="date" /></label>
+        <div id="timeRow">
+          <label>Start <input id="evStart" type="time" /></label>
+          <label>End <input id="evEnd" type="time" /></label>
+        </div>
+        <div class="modalButtons">
+          <button id="evCancel" class="ghost">Cancel</button>
+          <button id="evDelete" class="danger hidden">Delete</button>
+          <button id="evSave" class="btn">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Photo screensaver -->
+    <div id="screensaver" class="hidden">
+      <img id="ssImg" alt="" />
+      <div id="ssClock"></div>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "family-calendar",
+  "version": "0.1.0",
+  "description": "Touchscreen family calendar with Google Calendar sync, doodle board, and photo screensaver",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "auth": "node server.js --auth"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "googleapis": "^144.0.0",
+    "tsdav": "^2.1.5"
+  }
+}

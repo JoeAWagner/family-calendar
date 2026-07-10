@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ff8a5c"/><stop offset="1" stop-color="#d1345b"/>
+  </linearGradient></defs>
+  <rect width="1600" height="900" fill="url(#g)"/>
+  <circle cx="1250" cy="220" r="120" fill="#ffe08a" opacity="0.9"/>
+  <text x="800" y="470" font-family="sans-serif" font-size="90" fill="#fff" text-anchor="middle" font-weight="700">Sample Photo 1</text>
+  <text x="800" y="560" font-family="sans-serif" font-size="42" fill="#ffffffcc" text-anchor="middle">Beach day 🏖️</text>
+</svg>
