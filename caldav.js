@@ -34,10 +34,13 @@ async function getList(name) {
   if (_lists.has(key)) return { client: await getClient(), list: _lists.get(key) };
   const client = await getClient();
   const calendars = await client.fetchCalendars();
-  const list = calendars.find((c) => (c.displayName || '').toLowerCase() === key);
+  // Only VTODO collections are reminder lists (exclude event calendars, which can
+  // share a name — e.g. a "Family" calendar vs a "Family" reminders list).
+  const todoLists = calendars.filter((c) => (c.components || []).includes('VTODO'));
+  const list = todoLists.find((c) => (c.displayName || '').toLowerCase() === key);
   if (!list) {
-    const names = calendars.map((c) => c.displayName).filter(Boolean).join(', ');
-    throw new Error(`Reminders list "${name}" not found. Available: ${names}`);
+    const names = todoLists.map((c) => c.displayName).filter(Boolean).join(', ');
+    throw new Error(`Reminders list "${name}" not found. Your reminder lists: ${names}`);
   }
   _lists.set(key, list);
   return { client, list };

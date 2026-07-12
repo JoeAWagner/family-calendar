@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import { google } from 'googleapis';
 import * as reminders from './caldav.js';
+import * as bridge from './bridge.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -213,59 +214,105 @@ const demoLists = DEMO
     }
   : {};
 const DEMO_LIST_NAMES = ['Shopping', 'Costco'];
-const listConfigured = DEMO || reminders.caldavConfigured();
 
-// Which lists exist (names only) — used by the frontend to build its selector.
+// Where list data comes from:
+//   demo   – in-memory sample lists (UI building)
+//   bridge – iPad Shortcuts bridge (shared Apple Reminders; the working path here)
+//   caldav – direct iCloud CalDAV (only works for non-shared lists)
+//   none   – not configured
+const LIST_MODE =
+  process.env.LIST_MODE ||
+  (DEMO ? 'demo' : reminders.caldavConfigured() ? 'caldav' : 'none');
+
+// A tiny adapter so demo lists share the same interface as bridge/caldav.
+const demoBackend = {
+  listNames: () => DEMO_LIST_NAMES,
+  getItems: (name) => demoLists[name] || [],
+  addItem: (name, title) => {
+    const item = { uid: 'x' + Date.now(), title, done: false };
+    (demoLists[name] ||= []).push(item);
+    return item;
+  },
+  setDone: (name, uid, done) => {
+    const item = (demoLists[name] || []).find((i) => i.uid === uid);
+    if (item) item.done = done;
+    return { uid, done };
+  },
+  removeItem: (name, uid) => {
+    demoLists[name] = (demoLists[name] || []).filter((i) => i.uid !== uid);
+    return { ok: true };
+  },
+};
+
+// Pick the backend for list operations. bridge + demo are synchronous; caldav is
+// async (network) — Promise.resolve() lets us await all three uniformly.
+function listBackend() {
+  if (LIST_MODE === 'bridge') return bridge;
+  if (LIST_MODE === 'caldav') return reminders;
+  if (LIST_MODE === 'demo') return demoBackend;
+  return null;
+}
+
 app.get('/api/lists', (req, res) => {
-  if (!listConfigured) return res.json({ configured: false, names: [] });
-  res.json({ configured: true, names: DEMO ? DEMO_LIST_NAMES : reminders.listNames() });
+  const b = listBackend();
+  if (!b) return res.json({ configured: false, names: [] });
+  res.json({ configured: true, mode: LIST_MODE, names: b.listNames() });
 });
 
 app.get('/api/list/:name', async (req, res) => {
+  const b = listBackend();
   const name = req.params.name;
-  if (!listConfigured) return res.json({ configured: false, name, items: [] });
-  if (DEMO) return res.json({ configured: true, name, items: demoLists[name] || [] });
+  if (!b) return res.json({ configured: false, name, items: [] });
   try {
-    res.json({ configured: true, name, items: await reminders.getItems(name) });
+    res.json({ configured: true, name, items: await Promise.resolve(b.getItems(name)) });
   } catch (e) {
     res.status(500).json({ configured: true, name, error: e.message, items: [] });
   }
 });
 
 app.post('/api/list/:name', async (req, res) => {
-  const name = req.params.name;
+  const b = listBackend();
   const title = (req.body.title || '').trim();
+  if (!b) return res.status(400).json({ error: 'Lists not configured' });
   if (!title) return res.status(400).json({ error: 'Empty title' });
-  if (DEMO) {
-    const item = { uid: 'x' + Date.now(), title, done: false };
-    (demoLists[name] ||= []).push(item);
-    return res.json(item);
-  }
-  try { res.json(await reminders.addItem(name, title)); }
+  try { res.json(await Promise.resolve(b.addItem(req.params.name, title))); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/list/:name/:uid', async (req, res) => {
-  const { name, uid } = req.params;
-  const done = !!req.body.done;
-  if (DEMO) {
-    const item = (demoLists[name] || []).find((i) => i.uid === uid);
-    if (item) item.done = done;
-    return res.json({ uid, done });
-  }
-  try { res.json(await reminders.setDone(name, uid, done)); }
+  const b = listBackend();
+  if (!b) return res.status(400).json({ error: 'Lists not configured' });
+  try { res.json(await Promise.resolve(b.setDone(req.params.name, req.params.uid, !!req.body.done))); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/list/:name/:uid', async (req, res) => {
-  const { name, uid } = req.params;
-  if (DEMO) {
-    demoLists[name] = (demoLists[name] || []).filter((i) => i.uid !== uid);
-    return res.json({ ok: true });
-  }
-  try { res.json(await reminders.removeItem(name, uid)); }
+  const b = listBackend();
+  if (!b) return res.status(400).json({ error: 'Lists not configured' });
+  try { res.json(await Promise.resolve(b.removeItem(req.params.name, req.params.uid))); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// ---- iPad bridge endpoints (Shortcuts talks to these) ----------------------
+// Optional shared secret so only your iPad can push/pull.
+const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || '';
+function bridgeAuth(req, res, next) {
+  if (BRIDGE_TOKEN && req.get('x-bridge-token') !== BRIDGE_TOKEN) {
+    return res.status(401).json({ error: 'bad or missing x-bridge-token' });
+  }
+  next();
+}
+
+// iPad reports the current Reminders state. Body: { lists: { Shopping: [{title,done}], ... } }
+app.post('/api/bridge/push', bridgeAuth, (req, res) => {
+  bridge.setMirror(req.body.lists || {});
+  res.json({ ok: true, ...bridge.status() });
+});
+// iPad pulls the wall's pending edits, applies them to Reminders, then acks.
+app.get('/api/bridge/pull', bridgeAuth, (req, res) => res.json(bridge.pullOps()));
+app.post('/api/bridge/ack', bridgeAuth, (req, res) =>
+  res.json(bridge.ackOps(Number(req.body.token) || 0)));
+app.get('/api/bridge/status', bridgeAuth, (req, res) => res.json(bridge.status()));
 
 // ---- Weather (Open-Meteo, free, no API key) --------------------------------
 const LAT = process.env.WEATHER_LAT;
