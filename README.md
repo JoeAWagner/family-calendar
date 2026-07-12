@@ -163,8 +163,12 @@ saving) rather than overlaying black.
 - **On-screen keyboard** — a built-in touch keyboard (kiosk Chromium has no native
   one) that pops up for any text field, so you can type at the wall without hardware.
 - **Doodle board** — finger-paint canvas with colors + eraser.
-- **Photo screensaver** — after `IDLE_MINUTES` of no touch, cycles photos with a clock.
-  Any touch dismisses it.
+- **Photo screensaver** — after `IDLE_MINUTES` of no touch, cycles photos with a
+  clock, current weather, next event, and a mini forecast. Any touch dismisses it;
+  the 💤 button opens it on demand. Photos come from local files in `./photos`
+  **and/or an iCloud Shared Album**: in Apple Photos, open the shared album → People
+  tab → enable **Public Website**, copy the link, and put it in `ICLOUD_ALBUM`.
+  New photos anyone adds appear automatically (refreshed every 30 min).
 
 ## Roadmap ideas
 - Per-person color coding (multiple overlaid Google calendars)

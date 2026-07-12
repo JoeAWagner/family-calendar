@@ -402,6 +402,8 @@ function startScreensaver() {
 }
 function showNextPhoto() {
   const img = $('#ssImg');
+  // Skip a photo that fails to load (e.g. a transient iCloud hiccup).
+  img.onerror = () => { if (photos.length > 1) { photoIdx++; img.src = photos[photoIdx % photos.length]; } };
   img.style.opacity = 0;
   setTimeout(() => { img.src = photos[photoIdx % photos.length]; photoIdx++; img.style.opacity = 1; }, 400);
   updateScreensaverInfo();
@@ -757,5 +759,6 @@ async function boot() {
   // Re-sync with Google every 2 minutes; weather every 15.
   setInterval(loadEvents, 2 * 60 * 1000);
   setInterval(loadWeather, 15 * 60 * 1000);
+  setInterval(loadPhotos, 30 * 60 * 1000); // pick up newly-added album photos
 }
 boot();

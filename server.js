@@ -3,6 +3,7 @@ import express from 'express';
 import { google } from 'googleapis';
 import * as reminders from './caldav.js';
 import * as bridge from './bridge.js';
+import * as album from './icloudalbum.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -182,17 +183,38 @@ app.delete('/api/events/:id', async (req, res) => {
   }
 });
 
-// Photo gallery: demo photos live in public/demo; real ones in ./photos
-app.get('/api/photos', (req, res) => {
+// Photo gallery: local files in ./photos, and/or an iCloud shared album.
+app.get('/api/photos', async (req, res) => {
   if (DEMO) return res.json(['/demo/photo1.svg', '/demo/photo2.svg', '/demo/photo3.svg']);
-  if (!fs.existsSync(PHOTOS_DIR)) return res.json([]);
-  const files = fs
-    .readdirSync(PHOTOS_DIR)
-    .filter((f) => /\.(jpe?g|png|webp|gif)$/i.test(f))
-    .map((f) => '/photos/' + encodeURIComponent(f));
-  res.json(files);
+  const out = [];
+  if (fs.existsSync(PHOTOS_DIR)) {
+    out.push(...fs.readdirSync(PHOTOS_DIR)
+      .filter((f) => /\.(jpe?g|png|webp|gif)$/i.test(f))
+      .map((f) => '/photos/' + encodeURIComponent(f)));
+  }
+  if (album.albumConfigured()) {
+    try {
+      const guids = await album.listGuids();
+      out.push(...guids.map((g) => '/photo/' + encodeURIComponent(g)));
+    } catch (e) {
+      console.warn('iCloud album fetch failed:', e.message);
+    }
+  }
+  res.json(out);
 });
 app.use('/photos', express.static(PHOTOS_DIR));
+
+// Redirect a shared-album photo to its current signed iCloud URL (refreshed as
+// signed URLs expire), so the screensaver <img> always loads.
+app.get('/photo/:guid', async (req, res) => {
+  try {
+    const url = await album.urlForGuid(req.params.guid);
+    if (!url) return res.status(404).end();
+    res.redirect(url);
+  } catch (e) {
+    res.status(502).end();
+  }
+});
 
 // ---- Shopping / Costco lists (Apple Reminders via iCloud CalDAV) ------------
 // Demo store so the UI works without Apple credentials — one array per list.
