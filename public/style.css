@@ -29,8 +29,14 @@ html, body {
 /* Header */
 header {
   display: flex; align-items: center; gap: 20px;
-  padding: 14px 24px; background: var(--bg-2);
+  padding: 14px 24px;
+  background: linear-gradient(135deg, var(--sky, var(--bg-2)) 0%, var(--bg-2) 55%);
   box-shadow: 0 2px 12px rgba(60,50,30,.06); z-index: 2;
+  transition: background .8s ease;
+}
+#themeToggle {
+  font-size: 26px; padding: 0; width: 56px; min-width: 56px; border-radius: 50%;
+  background: var(--bg-2); box-shadow: var(--shadow);
 }
 #time { font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 #date { font-size: 17px; color: var(--muted); margin-top: 4px; font-weight: 600; }
@@ -93,21 +99,30 @@ main { flex: 1; position: relative; overflow: hidden; }
 .wk-ev .t { font-size: 12px; opacity: .9; font-weight: 700; display: block; }
 .weekcol .col-scroll { overflow-y: auto; flex: 1; }
 
-/* Month grid */
-#monthLabel { font-size: 28px; font-weight: 800; margin-bottom: 14px; text-align: center; }
-#monthGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+/* Month grid — fills the view height */
+#month { display: none; flex-direction: column; }
+#month.active { display: flex; }
+#monthLabel { font-size: 28px; font-weight: 800; margin-bottom: 12px; text-align: center; }
+#monthDow, #monthGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+#monthDow { margin-bottom: 6px; }
+#monthGrid { flex: 1; grid-auto-rows: 1fr; }
 .cell {
-  background: var(--panel); border-radius: 14px; min-height: 96px; padding: 8px;
+  background: var(--panel); border-radius: 14px; padding: 8px 9px; min-height: 92px;
   font-size: 16px; overflow: hidden; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 3px;
 }
-.cell .num { color: var(--muted); font-weight: 800; }
-.cell.today { outline: 3px solid var(--accent); }
+.cell.empty-cell { background: transparent; box-shadow: none; }
+.cell .num { color: var(--muted); font-weight: 800; font-size: 17px; }
+.cell.today { outline: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
 .cell.today .num { color: var(--accent); }
 .cell .pill {
   background: var(--evc, var(--accent)); color: #fff; border-radius: 8px; font-size: 13px;
-  font-weight: 700; padding: 3px 7px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 700; padding: 3px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; gap: 4px;
 }
-.dow { text-align: center; color: var(--muted); font-weight: 800; padding-bottom: 4px; font-size: 15px; }
+.cell .pill .pt { font-weight: 800; opacity: .85; }
+.cell .more { font-size: 12px; color: var(--muted); font-weight: 700; padding-left: 4px; }
+.dow { text-align: center; color: var(--muted); font-weight: 800; font-size: 15px; }
 
 /* ---- Detailed weather ---------------------------------------------------- */
 /* Shared sparkline styling */
@@ -284,6 +299,13 @@ main { flex: 1; position: relative; overflow: hidden; }
   font-size: 27px; font-weight: 700; text-shadow: 0 2px 16px rgba(0,0,0,.9); flex-wrap: wrap;
 }
 #ssNext { opacity: .95; }
+#ssForecast {
+  margin-top: 16px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+  font-size: 21px; font-weight: 700; text-shadow: 0 2px 12px rgba(0, 0, 0, .9);
+}
+.ss-fc { opacity: .92; }
+.ss-fc b { font-weight: 800; }
+.ss-fc i { font-style: normal; color: #bfe0ff; }
 
 /* ---- Auto night theme (evening/overnight) --------------------------------- */
 body { transition: background-color .8s ease, color .8s ease; }
@@ -300,6 +322,8 @@ body.night header { background: #1a1d24; box-shadow: 0 2px 12px rgba(0, 0, 0, .4
 body.night #weather { background: linear-gradient(135deg, #2a2431, #1e2a34); }
 body.night button,
 body.night .list-chip { background: #2a2e39; }
+body.night #themeToggle { background: #2a2e39; }
+body.night .cell.empty-cell { background: transparent; }
 body.night button.active { background: var(--accent); color: #fff; }
 body.night #addBtn { background: var(--accent-2); color: #fff; }
 body.night .card input[type=text],

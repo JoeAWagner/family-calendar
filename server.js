@@ -365,7 +365,7 @@ function demoWeather() {
     };
   });
   const [emoji, text] = wmo(codes[0]);
-  return { temp: 72, feels: 74, hi: daily[0].hi, lo: daily[0].lo, emoji, text, daily, demo: true };
+  return { temp: 72, feels: 74, code: codes[0], hi: daily[0].hi, lo: daily[0].lo, emoji, text, daily, demo: true };
 }
 
 app.get('/api/weather', async (req, res) => {
@@ -423,6 +423,7 @@ app.get('/api/weather', async (req, res) => {
     const data = {
       temp: j.current.temperature_2m,
       feels: j.current.apparent_temperature,
+      code: j.current.weather_code,
       hi: daily[0].hi, lo: daily[0].lo, emoji, text, daily,
     };
     weatherCache = { at: Date.now(), data };

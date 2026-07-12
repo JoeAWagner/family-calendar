@@ -17,11 +17,21 @@ function tickClock() {
   if (ss) ss.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   updateTheme();
 }
-// Dark theme in the evening/overnight so the wall isn't a glaring white panel.
+// Theme: auto (dark in evening), or manually forced light/dark via the toggle.
+let themeMode = localStorage.getItem('themeMode') || 'auto'; // auto | light | dark
+const isNightNow = () => { const h = new Date().getHours(); return h >= 20 || h < 7; };
 function updateTheme() {
-  const h = new Date().getHours();
-  document.body.classList.toggle('night', h >= 20 || h < 7);
+  const night = themeMode === 'dark' || (themeMode === 'auto' && isNightNow());
+  document.body.classList.toggle('night', night);
+  const btn = $('#themeToggle');
+  if (btn) btn.textContent = themeMode === 'auto' ? '🌗' : themeMode === 'dark' ? '🌙' : '☀️';
 }
+function cycleTheme() {
+  themeMode = themeMode === 'auto' ? 'light' : themeMode === 'light' ? 'dark' : 'auto';
+  localStorage.setItem('themeMode', themeMode);
+  updateTheme();
+}
+$('#themeToggle')?.addEventListener('click', cycleTheme);
 setInterval(tickClock, 1000);
 tickClock();
 
@@ -211,22 +221,27 @@ function renderMonth() {
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const today = new Date();
 
-  const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  $('#monthDow').innerHTML = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     .map((d) => `<div class="dow">${d}</div>`).join('');
 
   let cells = '';
-  for (let i = 0; i < startDay; i++) cells += '<div class="cell"></div>';
+  for (let i = 0; i < startDay; i++) cells += '<div class="cell empty-cell"></div>';
   for (let day = 1; day <= daysInMonth; day++) {
-    const dayEvents = events.filter((e) => {
-      const d = evStart(e);
-      return d.getFullYear() === y && d.getMonth() === m && d.getDate() === day;
-    });
+    const dayEvents = events
+      .filter((e) => { const d = evStart(e); return d.getFullYear() === y && d.getMonth() === m && d.getDate() === day; })
+      .sort((a, b) => evStart(a) - evStart(b));
     const isToday = today.getFullYear() === y && today.getMonth() === m && today.getDate() === day;
-    const pills = dayEvents.slice(0, 3).map((e) =>
-      `<div class="pill" style="--evc:${evColor(e)}">${escapeHtml(e.summary || '')}</div>`).join('');
-    cells += `<div class="cell ${isToday ? 'today' : ''}"><div class="num">${day}</div>${pills}</div>`;
+    const shown = dayEvents.slice(0, 3);
+    const pills = shown.map((e) => {
+      const t = evIsAllDay(e) ? '' : `<span class="pt">${evStart(e).toLocaleTimeString([], { hour: 'numeric' }).replace(' ', '')}</span> `;
+      return `<div class="pill" data-id="${e.id}" style="--evc:${evColor(e)}">${t}${escapeHtml(e.summary || '')}</div>`;
+    }).join('');
+    const more = dayEvents.length > 3 ? `<div class="more">+${dayEvents.length - 3} more</div>` : '';
+    cells += `<div class="cell ${isToday ? 'today' : ''}"><div class="num">${day}</div>${pills}${more}</div>`;
   }
-  $('#monthGrid').innerHTML = dows + cells;
+  $('#monthGrid').innerHTML = cells;
+  $$('#monthGrid .pill[data-id]').forEach((p) =>
+    p.addEventListener('click', () => openEvent(events.find((e) => e.id === p.dataset.id))));
 }
 
 // ---- Event modal -----------------------------------------------------------
@@ -348,7 +363,21 @@ function showNextPhoto() {
   setTimeout(() => { img.src = photos[photoIdx % photos.length]; photoIdx++; img.style.opacity = 1; }, 400);
   updateScreensaverInfo();
 }
-// Glanceable info shown over the photos: current temp + the next event.
+// The next few time-of-day forecast slots (today, rolling into tomorrow).
+function upcomingParts(max) {
+  const now = new Date();
+  const todayKey = wxKey(now);
+  const out = [];
+  for (const d of (weatherFull?.daily || [])) {
+    for (const p of (d.parts || [])) {
+      const dt = new Date(d.date + 'T00:00:00'); dt.setHours(PART_HOUR[p.key] || 12);
+      if (dt >= now) { out.push({ ...p, today: d.date === todayKey }); if (out.length >= max) return out; }
+    }
+  }
+  return out;
+}
+
+// Glanceable info shown over the photos: temp, next event, and a mini forecast.
 function updateScreensaverInfo() {
   if (weatherFull) $('#ssWeather').textContent = `${weatherFull.emoji} ${Math.round(weatherFull.temp)}°`;
   const now = new Date();
@@ -364,6 +393,10 @@ function updateScreensaverInfo() {
   } else {
     $('#ssNext').textContent = '';
   }
+  const soon = upcomingParts(4);
+  $('#ssForecast').innerHTML = soon.map((p) =>
+    `<span class="ss-fc"><b>${p.today ? p.label : 'Tmrw ' + p.label}</b> ${p.emoji} ${p.temp}°` +
+    `${p.pop >= 25 ? ` <i>💧${p.pop}%</i>` : ''}</span>`).join('');
 }
 function stopScreensaver() {
   $('#screensaver').classList.add('hidden');
@@ -475,11 +508,28 @@ function wxKey(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+// Subtle header tint driven by current conditions.
+const PART_HOUR = { morning: 8, midday: 13, evening: 18, night: 22 };
+const SKY = { clear: '#ffefcf', cloud: '#e9eff6', fog: '#e9ecef', rain: '#dde9f6', snow: '#e7f1fa', storm: '#e6e1f2' };
+function skyCategory(code) {
+  if (code === 0 || code === 1) return 'clear';
+  if (code === 2 || code === 3) return 'cloud';
+  if ([45, 48].includes(code)) return 'fog';
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rain';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow';
+  if ([95, 96, 99].includes(code)) return 'storm';
+  return 'cloud';
+}
+function applySky(code) {
+  document.body.style.setProperty('--sky', SKY[skyCategory(code)] || 'transparent');
+}
+
 async function loadWeather() {
   try {
     const w = await api('/api/weather');
     if (!w || w.unavailable) return;
     weatherFull = w;
+    if (w.code != null) applySky(w.code);
     $('#wIcon').textContent = w.emoji;
     $('#wTemp').textContent = Math.round(w.temp) + '°';
     const feels = w.feels != null ? ` · feels ${Math.round(w.feels)}°` : '';
