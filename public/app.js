@@ -8,13 +8,19 @@ let config = { authed: false, idleMinutes: 3 };
 let events = [];
 let monthCursor = new Date();
 
-// ---- Clock -----------------------------------------------------------------
+// ---- Clock + auto day/night theme ------------------------------------------
 function tickClock() {
   const now = new Date();
   $('#time').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   $('#date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
   const ss = $('#ssClock');
   if (ss) ss.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  updateTheme();
+}
+// Dark theme in the evening/overnight so the wall isn't a glaring white panel.
+function updateTheme() {
+  const h = new Date().getHours();
+  document.body.classList.toggle('night', h >= 20 || h < 7);
 }
 setInterval(tickClock, 1000);
 tickClock();
@@ -332,6 +338,7 @@ function resetIdle() {
 function startScreensaver() {
   if (!photos.length) return;
   $('#screensaver').classList.remove('hidden');
+  updateScreensaverInfo();
   showNextPhoto();
   ssTimer = setInterval(showNextPhoto, 8000);
 }
@@ -339,6 +346,24 @@ function showNextPhoto() {
   const img = $('#ssImg');
   img.style.opacity = 0;
   setTimeout(() => { img.src = photos[photoIdx % photos.length]; photoIdx++; img.style.opacity = 1; }, 400);
+  updateScreensaverInfo();
+}
+// Glanceable info shown over the photos: current temp + the next event.
+function updateScreensaverInfo() {
+  if (weatherFull) $('#ssWeather').textContent = `${weatherFull.emoji} ${Math.round(weatherFull.temp)}°`;
+  const now = new Date();
+  const upcoming = (events || []).find((e) => {
+    const s = evStart(e);
+    if (evIsAllDay(e)) { const d = new Date(s); d.setHours(23, 59, 59); return d >= now; }
+    return s >= now;
+  });
+  if (upcoming) {
+    const when = evIsAllDay(upcoming) ? evStart(upcoming).toLocaleDateString([], { weekday: 'short' })
+      : evStart(upcoming).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('#ssNext').textContent = `Next · ${upcoming.summary} · ${when}`;
+  } else {
+    $('#ssNext').textContent = '';
+  }
 }
 function stopScreensaver() {
   $('#screensaver').classList.add('hidden');

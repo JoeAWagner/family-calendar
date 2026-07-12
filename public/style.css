@@ -274,7 +274,44 @@ main { flex: 1; position: relative; overflow: hidden; }
 #ssImg { max-width: 100%; max-height: 100%; object-fit: contain; transition: opacity 1s;
   animation: kenburns 20s ease-in-out infinite alternate; }
 @keyframes kenburns { from { transform: scale(1) translateY(0); } to { transform: scale(1.08) translateY(-1%); } }
-#ssClock {
-  position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%);
-  font-size: 68px; font-weight: 800; color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,.8);
+#ssOverlay {
+  position: absolute; left: 0; right: 0; bottom: 0; text-align: center; color: #fff;
+  padding: 80px 40px 46px; background: linear-gradient(to top, rgba(0,0,0,.7), transparent);
 }
+#ssClock { font-size: 74px; font-weight: 800; line-height: 1; text-shadow: 0 2px 24px rgba(0,0,0,.85); }
+#ssMeta {
+  margin-top: 12px; display: flex; gap: 26px; justify-content: center; align-items: center;
+  font-size: 27px; font-weight: 700; text-shadow: 0 2px 16px rgba(0,0,0,.9); flex-wrap: wrap;
+}
+#ssNext { opacity: .95; }
+
+/* ---- Auto night theme (evening/overnight) --------------------------------- */
+body { transition: background-color .8s ease, color .8s ease; }
+body.night {
+  --bg: #14161c; --bg-2: #1c1f27; --panel: #222530;
+  --ink: #eef1f6; --muted: #98a2b3; --line: #2c313c;
+  --shadow: 0 6px 20px rgba(0, 0, 0, .45);
+  color: var(--ink);
+}
+/* The content views are transparent, so paint the app container (avoids the
+   root/body background-propagation quirk). */
+body.night #app { background-color: #14161c; }
+body.night header { background: #1a1d24; box-shadow: 0 2px 12px rgba(0, 0, 0, .4); }
+body.night #weather { background: linear-gradient(135deg, #2a2431, #1e2a34); }
+body.night button,
+body.night .list-chip { background: #2a2e39; }
+body.night button.active { background: var(--accent); color: #fff; }
+body.night #addBtn { background: var(--accent-2); color: #fff; }
+body.night .card input[type=text],
+body.night .card input[type=date],
+body.night .card input[type=time],
+body.night #newItem { background: #2a2e39; border-color: var(--line); color: var(--ink); }
+body.night .wx-detail { background: linear-gradient(135deg, #241f2b, #1b2630); }
+body.night .wx-part,
+body.night .ws-now,
+body.night .ws-day,
+body.night .ws-parts .wx-part { background: rgba(255, 255, 255, .06); }
+body.night #weatherScreen { background: linear-gradient(160deg, #161a22 0%, #1b1720 60%, #201820 100%); }
+body.night #osk { background: #14161b; }
+body.night .osk-key { background: #2a2e39; color: var(--ink); }
+body.night .osk-key.util { background: #363b47; }
