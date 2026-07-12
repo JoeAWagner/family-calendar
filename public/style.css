@@ -34,7 +34,7 @@ header {
   box-shadow: 0 2px 12px rgba(60,50,30,.06); z-index: 2;
   transition: background .8s ease;
 }
-#themeToggle {
+#themeToggle, #sleepBtn {
   font-size: 26px; padding: 0; width: 56px; min-width: 56px; border-radius: 50%;
   background: var(--bg-2); box-shadow: var(--shadow);
 }
@@ -322,7 +322,7 @@ body.night header { background: #1a1d24; box-shadow: 0 2px 12px rgba(0, 0, 0, .4
 body.night #weather { background: linear-gradient(135deg, #2a2431, #1e2a34); }
 body.night button,
 body.night .list-chip { background: #2a2e39; }
-body.night #themeToggle { background: #2a2e39; }
+body.night #themeToggle, body.night #sleepBtn { background: #2a2e39; }
 body.night .cell.empty-cell { background: transparent; }
 body.night button.active { background: var(--accent); color: #fff; }
 body.night #addBtn { background: var(--accent-2); color: #fff; }

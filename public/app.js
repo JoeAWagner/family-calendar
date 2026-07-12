@@ -351,11 +351,14 @@ function resetIdle() {
   idleTimer = setTimeout(startScreensaver, config.idleMinutes * 60 * 1000);
 }
 function startScreensaver() {
-  if (!photos.length) return;
   $('#screensaver').classList.remove('hidden');
   updateScreensaverInfo();
-  showNextPhoto();
-  ssTimer = setInterval(showNextPhoto, 8000);
+  // Cycle photos if any exist; otherwise it's a calm black standby with the
+  // clock, weather, and next event.
+  if (photos.length) {
+    showNextPhoto();
+    ssTimer = setInterval(showNextPhoto, 8000);
+  }
 }
 function showNextPhoto() {
   const img = $('#ssImg');
@@ -404,6 +407,13 @@ function stopScreensaver() {
 }
 ['mousedown', 'touchstart', 'keydown'].forEach((e) =>
   document.addEventListener(e, resetIdle, { passive: true }));
+
+// Manual "sleep" button. clearTimeout stops resetIdle (fired by this same tap)
+// from immediately dismissing it; the next touch anywhere wakes it as usual.
+$('#sleepBtn')?.addEventListener('click', () => {
+  clearTimeout(idleTimer);
+  startScreensaver();
+});
 
 // ---- Utils -----------------------------------------------------------------
 function escapeHtml(s) {
