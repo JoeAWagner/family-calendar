@@ -36,7 +36,9 @@ header {
 #date { font-size: 17px; color: var(--muted); margin-top: 4px; font-weight: 600; }
 
 #weather { display: flex; align-items: center; gap: 12px; padding: 6px 16px;
-  background: linear-gradient(135deg, #fff2e8, #eaf4fc); border-radius: 18px; }
+  background: linear-gradient(135deg, #fff2e8, #eaf4fc); border-radius: 18px;
+  cursor: pointer; transition: transform .08s; }
+#weather:active { transform: scale(0.96); }
 #wIcon { font-size: 40px; line-height: 1; }
 #wTemp { font-size: 30px; font-weight: 800; line-height: 1; }
 #wHiLo { font-size: 15px; color: var(--muted); font-weight: 600; margin-top: 3px; }
@@ -229,6 +231,40 @@ main { flex: 1; position: relative; overflow: hidden; }
 .osk-key.accent { background: var(--accent); color: #fff; }
 .osk-key.util { background: #cfd6df; }
 .osk-key.active { background: var(--accent-2); color: #fff; }
+
+/* Full-screen weather */
+#weatherScreen {
+  position: fixed; inset: 0; z-index: 70; overflow-y: auto;
+  background: linear-gradient(160deg, #eaf3fd 0%, #fff6ec 60%, #fdeef2 100%);
+  padding: 22px 26px 40px; animation: viewIn .25s ease-out;
+}
+.ws-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.ws-bar h2 { margin: 0; font-size: 30px; font-weight: 800; }
+
+.ws-now {
+  display: flex; align-items: center; gap: 22px; background: rgba(255,255,255,.7);
+  border-radius: 22px; padding: 22px 26px; margin-bottom: 20px; box-shadow: var(--shadow);
+}
+.ws-now-emoji { font-size: 72px; line-height: 1; }
+.ws-now-temp { font-size: 64px; font-weight: 800; line-height: 1; }
+.ws-now-cond { font-size: 22px; color: var(--muted); font-weight: 700; margin-top: 4px; }
+.ws-now-meta { margin-left: auto; text-align: right; font-size: 20px; color: var(--muted); font-weight: 600; line-height: 1.6; }
+.ws-now-meta b { color: var(--ink); }
+
+.ws-day {
+  background: rgba(255,255,255,.72); border-radius: 18px; padding: 14px 20px;
+  margin-bottom: 12px; box-shadow: var(--shadow);
+}
+.ws-day-head { display: flex; align-items: center; gap: 14px; }
+.ws-emoji { font-size: 34px; }
+.ws-name { font-size: 24px; font-weight: 800; }
+.ws-name small { color: var(--muted); font-weight: 700; font-size: 17px; margin-left: 6px; }
+.ws-hilo { margin-left: auto; font-size: 22px; font-weight: 700; color: var(--muted); }
+.ws-hilo b { color: var(--ink); font-size: 26px; }
+.ws-hilo i { font-style: normal; }
+.ws-spark { height: 64px; margin: 8px 0 6px; }
+.ws-parts { display: flex; gap: 12px; flex-wrap: wrap; }
+.ws-parts .wx-part { background: rgba(255,255,255,.85); }
 
 /* Screensaver */
 #screensaver {

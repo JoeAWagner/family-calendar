@@ -443,7 +443,8 @@ $('#addItemBtn').addEventListener('click', addItem);
 $('#newItem').addEventListener('keydown', (e) => { if (e.key === 'Enter') addItem(); });
 
 // ---- Weather ---------------------------------------------------------------
-let weatherByDate = {}; // 'YYYY-MM-DD' -> { emoji, hi, lo }
+let weatherByDate = {}; // 'YYYY-MM-DD' -> full day object
+let weatherFull = null; // last full /api/weather response
 
 function wxKey(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -453,6 +454,7 @@ async function loadWeather() {
   try {
     const w = await api('/api/weather');
     if (!w || w.unavailable) return;
+    weatherFull = w;
     $('#wIcon').textContent = w.emoji;
     $('#wTemp').textContent = Math.round(w.temp) + '°';
     const feels = w.feels != null ? ` · feels ${Math.round(w.feels)}°` : '';
@@ -463,8 +465,59 @@ async function loadWeather() {
     // Forecast may arrive after events render — repaint the day-based views.
     renderAgenda();
     renderWeek();
+    if (!$('#weatherScreen').classList.contains('hidden')) renderWeatherScreen();
   } catch {}
 }
+
+// ---- Full-screen weather (tap the header weather) --------------------------
+function renderWeatherScreen() {
+  const body = $('#weatherScreenBody');
+  if (!weatherFull || !weatherFull.daily) {
+    body.innerHTML = '<div class="empty">Weather unavailable</div>';
+    return;
+  }
+  const w = weatherFull;
+  const today = w.daily[0];
+  const now = `<div class="ws-now">
+    <div class="ws-now-emoji">${w.emoji}</div>
+    <div class="ws-now-main">
+      <div class="ws-now-temp">${Math.round(w.temp)}°</div>
+      <div class="ws-now-cond">${w.text}</div>
+    </div>
+    <div class="ws-now-meta">
+      ${w.feels != null ? `<div>Feels like <b>${Math.round(w.feels)}°</b></div>` : ''}
+      <div>High <b>${Math.round(today.hi)}°</b> · Low <b>${Math.round(today.lo)}°</b></div>
+    </div>
+  </div>`;
+
+  const days = w.daily.map((d, i) => {
+    const dd = new Date(d.date + 'T00:00:00');
+    const name = i === 0 ? 'Today' : dd.toLocaleDateString([], { weekday: 'long' });
+    const sub = dd.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const parts = (d.parts || []).map(wxPartChip).join('');
+    return `<div class="ws-day">
+      <div class="ws-day-head">
+        <span class="ws-emoji">${d.emoji}</span>
+        <span class="ws-name">${name} <small>${sub}</small></span>
+        <span class="ws-hilo"><b>${Math.round(d.hi)}°</b> <i>${Math.round(d.lo)}°</i></span>
+      </div>
+      <div class="ws-spark">${wxSparkline(d, 600, 64)}</div>
+      <div class="ws-parts">${parts}</div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = now + days;
+}
+
+function openWeatherScreen() {
+  if (!weatherFull) return;
+  renderWeatherScreen();
+  $('#weatherScreen').classList.remove('hidden');
+}
+function closeWeatherScreen() { $('#weatherScreen').classList.add('hidden'); }
+
+$('#weather').addEventListener('click', openWeatherScreen);
+$('#wsClose').addEventListener('click', closeWeatherScreen);
 
 // ---- On-screen keyboard ----------------------------------------------------
 // Kiosk Chromium has no native touch keyboard, so we build our own. It attaches
