@@ -85,8 +85,18 @@ main { flex: 1; position: relative; overflow: hidden; }
 .day-header small { color: var(--muted); font-weight: 700; }
 #agenda .empty, #week .empty { color: var(--muted); font-size: 22px; text-align: center; margin-top: 40px; }
 
+/* Shared view navigation bar (week/month arrows) */
+.viewnav { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 14px; }
+.viewnav > span { font-size: 26px; font-weight: 800; min-width: 220px; text-align: center; }
+.navarrow { font-size: 30px; width: 56px; min-width: 56px; padding: 0; line-height: 1;
+  border-radius: 50%; background: var(--bg-2); box-shadow: var(--shadow); }
+.navtoday { font-size: 17px; padding: 10px 18px; }
+body.night .navarrow { background: #2a2e39; }
+
 /* Week view — 7 day columns */
-#weekGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; height: 100%; }
+#week { display: none; flex-direction: column; }
+#week.active { display: flex; }
+#weekGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; flex: 1; min-height: 0; }
 .weekcol { background: var(--panel); border-radius: 18px; padding: 10px; box-shadow: var(--shadow);
   display: flex; flex-direction: column; overflow: hidden; }
 .weekcol.today { outline: 3px solid var(--accent); }
@@ -102,7 +112,6 @@ main { flex: 1; position: relative; overflow: hidden; }
 /* Month grid — fills the view height */
 #month { display: none; flex-direction: column; }
 #month.active { display: flex; }
-#monthLabel { font-size: 28px; font-weight: 800; margin-bottom: 12px; text-align: center; }
 #monthDow, #monthGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
 #monthDow { margin-bottom: 6px; }
 #monthGrid { flex: 1; grid-auto-rows: 1fr; }

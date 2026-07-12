@@ -7,6 +7,7 @@ const api = (url, opts) => fetch(url, opts).then((r) => r.json());
 let config = { authed: false, idleMinutes: 3 };
 let events = [];
 let monthCursor = new Date();
+let weekOffset = 0; // weeks away from the current week
 
 // ---- Clock + auto day/night theme ------------------------------------------
 function tickClock() {
@@ -48,13 +49,24 @@ function switchView(name) {
   if (name === 'doodle') fitCanvas();
 }
 
+// Week / month navigation arrows.
+$('#weekPrev')?.addEventListener('click', () => { weekOffset -= 1; renderWeek(); });
+$('#weekNext')?.addEventListener('click', () => { weekOffset += 1; renderWeek(); });
+$('#weekToday')?.addEventListener('click', () => { weekOffset = 0; renderWeek(); });
+$('#monthPrev')?.addEventListener('click', () => { monthCursor.setMonth(monthCursor.getMonth() - 1); renderMonth(); });
+$('#monthNext')?.addEventListener('click', () => { monthCursor.setMonth(monthCursor.getMonth() + 1); renderMonth(); });
+$('#monthToday')?.addEventListener('click', () => { monthCursor = new Date(); renderMonth(); });
+
 // ---- Load events -----------------------------------------------------------
 async function loadEvents() {
   if (!config.authed) return;
+  // Wide window so week/month navigation has events: ~1 month back, ~6 ahead.
   const timeMin = new Date();
   timeMin.setHours(0, 0, 0, 0);
-  const timeMax = new Date(timeMin);
-  timeMax.setDate(timeMax.getDate() + 60); // look ahead 60 days
+  timeMin.setDate(timeMin.getDate() - 31);
+  const timeMax = new Date();
+  timeMax.setHours(0, 0, 0, 0);
+  timeMax.setDate(timeMax.getDate() + 183);
   try {
     events = await api(`/api/events?timeMin=${timeMin.toISOString()}&timeMax=${timeMax.toISOString()}`);
     if (!Array.isArray(events)) events = [];
@@ -145,10 +157,17 @@ function wxWeekPanel(day) {
 function renderAgenda() {
   const el = $('#agenda');
   if (!config.authed) { el.innerHTML = ''; return; }
-  if (!events.length) { el.innerHTML = '<div class="empty">No upcoming events 🎉</div>'; return; }
+  // Agenda is upcoming-only (the fetch window also includes past events for the
+  // week/month views).
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const upcoming = events.filter((e) => {
+    const d = evStart(e); const day = new Date(d); day.setHours(0, 0, 0, 0);
+    return day >= startOfToday;
+  });
+  if (!upcoming.length) { el.innerHTML = '<div class="empty">No upcoming events 🎉</div>'; return; }
 
   const groups = {};
-  for (const e of events) {
+  for (const e of upcoming) {
     const d = evStart(e);
     const key = d.toDateString();
     (groups[key] ||= []).push(e);
@@ -181,8 +200,11 @@ function renderWeek() {
   if (!config.authed) { el.innerHTML = ''; return; }
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - start.getDay()); // back to Sunday
+  start.setDate(start.getDate() - start.getDay() + weekOffset * 7); // Sunday of the shown week
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  const end = new Date(start); end.setDate(start.getDate() + 6);
+  const fmt = (d) => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  $('#weekLabel').textContent = `${fmt(start)} – ${fmt(end)}`;
 
   let html = '';
   for (let i = 0; i < 7; i++) {

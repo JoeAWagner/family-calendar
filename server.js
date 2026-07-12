@@ -142,7 +142,7 @@ app.get('/api/events', async (req, res) => {
       timeMax: req.query.timeMax,
       singleEvents: true,
       orderBy: 'startTime',
-      maxResults: 250,
+      maxResults: 500,
     });
     res.json(data.items || []);
   } catch (e) {
