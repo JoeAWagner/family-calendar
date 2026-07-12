@@ -75,7 +75,10 @@ Drop `.jpg/.png` files into a `photos/` folder next to `server.js` for the scree
 Install Raspberry Pi OS (64-bit). Then install Chromium and a **modern Node**:
 
 ```bash
-sudo apt update && sudo apt install -y chromium-browser unclutter
+# NOTE: fonts-noto-color-emoji is REQUIRED — the UI's icons are emoji, and a
+# fresh Pi OS ships without a color-emoji font (they'd show as blank boxes).
+sudo apt update && sudo apt install -y chromium-browser unclutter fonts-noto-color-emoji
+fc-cache -f   # then restart Chromium / reboot so the emoji font is picked up
 
 # This app needs Node 18+ (it uses global fetch). Do NOT rely on `apt install
 # nodejs` — on Pi OS it can be a very old version. Use NodeSource instead:
