@@ -286,9 +286,20 @@ body.night .navarrow { background: #2a2e39; }
 .ws-hilo { margin-left: auto; font-size: 22px; font-weight: 700; color: var(--muted); }
 .ws-hilo b { color: var(--ink); font-size: 26px; }
 .ws-hilo i { font-style: normal; }
+.ws-name { flex: 1; }
+.ws-sun-sm { color: var(--muted); font-weight: 700; font-size: 15px; white-space: nowrap; margin-right: 14px; }
 .ws-spark { height: 64px; margin: 8px 0 6px; }
 .ws-parts { display: flex; gap: 12px; flex-wrap: wrap; }
 .ws-parts .wx-part { background: rgba(255,255,255,.85); }
+.ws-sun { font-size: 18px; color: var(--muted); font-weight: 600; }
+.ws-aqi { display: flex; align-items: center; gap: 8px; justify-content: flex-end; font-size: 18px; color: var(--muted); font-weight: 700; }
+.aqi-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
+
+/* Scheduled brightness dimmer — sits above everything, never blocks touch */
+#dimmer {
+  position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none;
+  z-index: 9999; transition: opacity 3s ease;
+}
 
 /* Screensaver */
 #screensaver {

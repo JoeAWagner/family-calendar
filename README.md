@@ -135,6 +135,12 @@ blank after 5 min of no input:
 For the PIR sensor wake, run a small Python script that calls
 `xset dpms force on` when GPIO goes high. Ask me and I'll add `motion-wake.py`.
 
+**Brightness schedule:** the app includes a built-in *software* dimmer that darkens
+the screen in the evening/overnight (a subtle overlay — no config needed). For true
+**backlight** control on a DSI/official touchscreen, install `rpi-backlight` and have
+a cron job set the brightness by time of day; that dims the actual LEDs (more power
+saving) rather than overlaying black.
+
 ---
 
 ## Features / how it works

@@ -17,6 +17,24 @@ function tickClock() {
   const ss = $('#ssClock');
   if (ss) ss.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   updateTheme();
+  updateDimmer();
+}
+
+// Scheduled brightness: bright by day, gradually dimmed late evening/overnight.
+// This is a software dimmer (an overlay); for true backlight control on the Pi
+// see rpi-backlight in the README.
+const MAX_DIM = 0.55;
+function computeDim() {
+  const now = new Date();
+  const h = now.getHours() + now.getMinutes() / 60;
+  if (h >= 7 && h < 20) return 0;             // daytime: full brightness
+  if (h >= 20 && h < 23) return MAX_DIM * (h - 20) / 3; // dusk ramp down
+  if (h >= 6 && h < 7) return MAX_DIM * (7 - h);        // dawn ramp up
+  return MAX_DIM;                              // 23:00–06:00: dimmest
+}
+function updateDimmer() {
+  const el = $('#dimmer');
+  if (el) el.style.opacity = computeDim().toFixed(3);
 }
 // Theme: auto (dark in evening), or manually forced light/dark via the toggle.
 let themeMode = localStorage.getItem('themeMode') || 'auto'; // auto | light | dark
@@ -585,6 +603,11 @@ function renderWeatherScreen() {
   }
   const w = weatherFull;
   const today = w.daily[0];
+  const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+  const sunLine = (d) => (d.sunrise || d.sunset) ? `🌅 ${fmtTime(d.sunrise)}   🌇 ${fmtTime(d.sunset)}` : '';
+  const aqiChip = w.aqi
+    ? `<div class="ws-aqi"><span class="aqi-dot" style="background:${w.aqi.color}"></span>AQI ${w.aqi.value} · ${w.aqi.category}</div>`
+    : '';
   const now = `<div class="ws-now">
     <div class="ws-now-emoji">${w.emoji}</div>
     <div class="ws-now-main">
@@ -594,6 +617,8 @@ function renderWeatherScreen() {
     <div class="ws-now-meta">
       ${w.feels != null ? `<div>Feels like <b>${Math.round(w.feels)}°</b></div>` : ''}
       <div>High <b>${Math.round(today.hi)}°</b> · Low <b>${Math.round(today.lo)}°</b></div>
+      <div class="ws-sun">${sunLine(today)}</div>
+      ${aqiChip}
     </div>
   </div>`;
 
@@ -606,6 +631,7 @@ function renderWeatherScreen() {
       <div class="ws-day-head">
         <span class="ws-emoji">${d.emoji}</span>
         <span class="ws-name">${name} <small>${sub}</small></span>
+        <span class="ws-sun-sm">${sunLine(d)}</span>
         <span class="ws-hilo"><b>${Math.round(d.hi)}°</b> <i>${Math.round(d.lo)}°</i></span>
       </div>
       <div class="ws-spark">${wxSparkline(d, 600, 64)}</div>

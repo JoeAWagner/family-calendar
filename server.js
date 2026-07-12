@@ -341,11 +341,35 @@ const DAY_PARTS = [
   { key: 'night', label: 'Night', hour: 22 },
 ];
 
+// US AQI -> category + color.
+function aqiInfo(v) {
+  if (v == null || Number.isNaN(v)) return null;
+  const value = Math.round(v);
+  if (value <= 50) return { value, category: 'Good', color: '#35c28b' };
+  if (value <= 100) return { value, category: 'Moderate', color: '#e6b800' };
+  if (value <= 150) return { value, category: 'Sensitive', color: '#f5a623' };
+  if (value <= 200) return { value, category: 'Unhealthy', color: '#e5484d' };
+  if (value <= 300) return { value, category: 'Very Unhealthy', color: '#b56cf0' };
+  return { value, category: 'Hazardous', color: '#8b2f4a' };
+}
+
+// Air quality (separate Open-Meteo endpoint; also free, no key). Best-effort.
+async function fetchAqi() {
+  try {
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}` +
+      `&longitude=${LON}&current=us_aqi&timezone=auto`;
+    const r = await fetch(url);
+    const j = await r.json();
+    return aqiInfo(j.current?.us_aqi);
+  } catch { return null; }
+}
+
 function demoWeather() {
   // 7-day synthetic forecast with a plausible hourly temperature curve.
   const codes = [0, 1, 2, 61, 3, 80, 1];
   const daily = codes.map((code, i) => {
     const d = new Date(); d.setDate(d.getDate() + i);
+    const iso = d.toISOString().slice(0, 10);
     const [emoji] = wmo(code);
     const base = 62 - i, swing = 16;
     // Diurnal curve: coolest ~5am, warmest ~3pm.
@@ -360,13 +384,20 @@ function demoWeather() {
       return { key: pp.key, label: pp.label, temp: hr.t, pop: hr.p, emoji };
     });
     return {
-      date: d.toISOString().slice(0, 10), code, emoji,
-      hi: Math.max(...temps), lo: Math.min(...temps), parts, hourly,
+      date: iso, code, emoji,
+      hi: Math.max(...temps), lo: Math.min(...temps),
+      sunrise: `${iso}T06:${pad2(8 + i)}`, sunset: `${iso}T20:${pad2(20 - i)}`,
+      parts, hourly,
     };
   });
   const [emoji, text] = wmo(codes[0]);
-  return { temp: 72, feels: 74, code: codes[0], hi: daily[0].hi, lo: daily[0].lo, emoji, text, daily, demo: true };
+  return {
+    temp: 72, feels: 74, code: codes[0], hi: daily[0].hi, lo: daily[0].lo, emoji, text, daily,
+    sunrise: daily[0].sunrise, sunset: daily[0].sunset,
+    aqi: { value: 42, category: 'Good', color: '#35c28b' }, demo: true,
+  };
 }
+const pad2 = (n) => String(n).padStart(2, '0');
 
 app.get('/api/weather', async (req, res) => {
   if (DEMO && (!LAT || !LON)) return res.json(demoWeather());
@@ -379,11 +410,12 @@ app.get('/api/weather', async (req, res) => {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
       `&current=temperature_2m,apparent_temperature,weather_code` +
       `&hourly=temperature_2m,weather_code,precipitation_probability` +
-      `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
       `&forecast_days=7&temperature_unit=${TEMP_UNIT}&timezone=auto`;
     const r = await fetch(url);
     const j = await r.json();
     const [emoji, text] = wmo(j.current.weather_code);
+    const aqi = await fetchAqi();
 
     // Index hourly data by date -> hour.
     const byDate = {};
@@ -416,6 +448,7 @@ app.get('/api/weather', async (req, res) => {
         date, code: j.daily.weather_code[i], emoji: dEmoji,
         hi: Math.round(j.daily.temperature_2m_max[i]),
         lo: Math.round(j.daily.temperature_2m_min[i]),
+        sunrise: j.daily.sunrise?.[i], sunset: j.daily.sunset?.[i],
         parts, hourly,
       };
     });
@@ -425,6 +458,7 @@ app.get('/api/weather', async (req, res) => {
       feels: j.current.apparent_temperature,
       code: j.current.weather_code,
       hi: daily[0].hi, lo: daily[0].lo, emoji, text, daily,
+      sunrise: daily[0].sunrise, sunset: daily[0].sunset, aqi,
     };
     weatherCache = { at: Date.now(), data };
     res.json(data);
