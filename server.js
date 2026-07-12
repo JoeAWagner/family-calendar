@@ -333,16 +333,39 @@ function wmo(code) {
   return ['🌡️', 'Weather'];
 }
 
+// Representative hours for the time-of-day breakdown.
+const DAY_PARTS = [
+  { key: 'morning', label: 'Morning', hour: 8 },
+  { key: 'midday', label: 'Midday', hour: 13 },
+  { key: 'evening', label: 'Evening', hour: 18 },
+  { key: 'night', label: 'Night', hour: 22 },
+];
+
 function demoWeather() {
-  // 7-day synthetic forecast starting today.
+  // 7-day synthetic forecast with a plausible hourly temperature curve.
   const codes = [0, 1, 2, 61, 3, 80, 1];
-  const days = codes.map((code, i) => {
+  const daily = codes.map((code, i) => {
     const d = new Date(); d.setDate(d.getDate() + i);
     const [emoji] = wmo(code);
-    return { date: d.toISOString().slice(0, 10), hi: 78 - i, lo: 61 - i, code, emoji };
+    const base = 62 - i, swing = 16;
+    // Diurnal curve: coolest ~5am, warmest ~3pm.
+    const hourly = Array.from({ length: 24 }, (_, h) => {
+      const t = Math.round(base + swing * Math.sin(((h - 9) / 24) * 2 * Math.PI) * 0.5 + swing * 0.5);
+      const p = [61, 80].includes(code) ? Math.max(0, Math.round(60 * Math.sin((h / 24) * Math.PI))) : (h % 7) * 4;
+      return { h, t, p };
+    });
+    const temps = hourly.map((x) => x.t);
+    const parts = DAY_PARTS.map((pp) => {
+      const hr = hourly[pp.hour];
+      return { key: pp.key, label: pp.label, temp: hr.t, pop: hr.p, emoji };
+    });
+    return {
+      date: d.toISOString().slice(0, 10), code, emoji,
+      hi: Math.max(...temps), lo: Math.min(...temps), parts, hourly,
+    };
   });
   const [emoji, text] = wmo(codes[0]);
-  return { temp: 72, hi: days[0].hi, lo: days[0].lo, emoji, text, daily: days, demo: true };
+  return { temp: 72, feels: 74, hi: daily[0].hi, lo: daily[0].lo, emoji, text, daily, demo: true };
 }
 
 app.get('/api/weather', async (req, res) => {
@@ -354,20 +377,54 @@ app.get('/api/weather', async (req, res) => {
   }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
-      `&current=temperature_2m,weather_code` +
+      `&current=temperature_2m,apparent_temperature,weather_code` +
+      `&hourly=temperature_2m,weather_code,precipitation_probability` +
       `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
       `&forecast_days=7&temperature_unit=${TEMP_UNIT}&timezone=auto`;
     const r = await fetch(url);
     const j = await r.json();
     const [emoji, text] = wmo(j.current.weather_code);
-    const daily = j.daily.time.map((date, i) => {
-      const [dEmoji] = wmo(j.daily.weather_code[i]);
-      return {
-        date, code: j.daily.weather_code[i], emoji: dEmoji,
-        hi: j.daily.temperature_2m_max[i], lo: j.daily.temperature_2m_min[i],
+
+    // Index hourly data by date -> hour.
+    const byDate = {};
+    j.hourly.time.forEach((iso, i) => {
+      const [date, hm] = iso.split('T');
+      const hour = Number(hm.slice(0, 2));
+      (byDate[date] ||= {})[hour] = {
+        t: j.hourly.temperature_2m[i],
+        p: j.hourly.precipitation_probability?.[i] ?? 0,
+        c: j.hourly.weather_code[i],
       };
     });
-    const data = { temp: j.current.temperature_2m, hi: daily[0].hi, lo: daily[0].lo, emoji, text, daily };
+
+    const daily = j.daily.time.map((date, i) => {
+      const [dEmoji] = wmo(j.daily.weather_code[i]);
+      const hrs = byDate[date] || {};
+      const hourly = Array.from({ length: 24 }, (_, h) => ({
+        h, t: Math.round(hrs[h]?.t ?? j.daily.temperature_2m_min[i]), p: hrs[h]?.p ?? 0,
+      }));
+      const parts = DAY_PARTS.map((pp) => {
+        const hr = hrs[pp.hour];
+        const [pEmoji] = wmo(hr ? hr.c : j.daily.weather_code[i]);
+        return {
+          key: pp.key, label: pp.label,
+          temp: Math.round(hr?.t ?? j.daily.temperature_2m_max[i]),
+          pop: hr?.p ?? 0, emoji: pEmoji,
+        };
+      });
+      return {
+        date, code: j.daily.weather_code[i], emoji: dEmoji,
+        hi: Math.round(j.daily.temperature_2m_max[i]),
+        lo: Math.round(j.daily.temperature_2m_min[i]),
+        parts, hourly,
+      };
+    });
+
+    const data = {
+      temp: j.current.temperature_2m,
+      feels: j.current.apparent_temperature,
+      hi: daily[0].hi, lo: daily[0].lo, emoji, text, daily,
+    };
     weatherCache = { at: Date.now(), data };
     res.json(data);
   } catch (e) {

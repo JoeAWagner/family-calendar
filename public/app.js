@@ -60,6 +60,71 @@ function evColor(e) {
   return PALETTE[h % PALETTE.length];
 }
 
+// ---- Weather rendering helpers --------------------------------------------
+const PART_SHORT = { morning: 'AM', midday: 'Noon', evening: 'PM', night: 'Night' };
+
+// Hourly temperature sparkline (area + line + rain bars + "now" marker).
+// preserveAspectRatio=none lets it stretch to fill its container width.
+function wxSparkline(day, W, H) {
+  const hrs = day.hourly || [];
+  if (hrs.length < 2) return '';
+  const temps = hrs.map((x) => x.t);
+  const tmin = Math.min(...temps), tmax = Math.max(...temps);
+  const range = Math.max(1, tmax - tmin);
+  const padX = 4, padTop = 8, padBot = 6;
+  const X = (h) => padX + (h / 23) * (W - 2 * padX);
+  const Y = (t) => padTop + (1 - (t - tmin) / range) * (H - padTop - padBot);
+  const pts = hrs.map((x) => `${X(x.h).toFixed(1)},${Y(x.t).toFixed(1)}`);
+  const area = `M${X(0).toFixed(1)},${(H - padBot).toFixed(1)} L${pts.join(' L')} L${X(23).toFixed(1)},${(H - padBot).toFixed(1)} Z`;
+  const bars = hrs.filter((x) => x.p > 5).map((x) => {
+    const bh = (x.p / 100) * (H - padTop - padBot);
+    return `<rect class="wx-rain" x="${(X(x.h) - 2.4).toFixed(1)}" y="${(H - padBot - bh).toFixed(1)}" width="4.8" height="${bh.toFixed(1)}" rx="1"/>`;
+  }).join('');
+  let now = '';
+  if (day.date === wxKey(new Date())) {
+    const nx = X(new Date().getHours()).toFixed(1);
+    now = `<line class="wx-now" x1="${nx}" y1="0" x2="${nx}" y2="${H}"/>`;
+  }
+  return `<svg class="wx-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    ${bars}<path class="wx-area" d="${area}"/><polyline class="wx-line" points="${pts.join(' ')}"/>${now}
+  </svg>`;
+}
+
+function wxPartChip(p) {
+  const rain = p.pop >= 20 ? `<span class="wx-pp">💧${p.pop}%</span>` : '';
+  return `<div class="wx-part"><span class="wx-pe">${p.emoji}</span>` +
+    `<span class="wx-pl">${p.label}</span><span class="wx-pt">${p.temp}°</span>${rain}</div>`;
+}
+
+// Full-width weather panel for the Agenda day headers.
+function wxAgendaPanel(day) {
+  if (!day) return '';
+  const parts = (day.parts || []).map(wxPartChip).join('');
+  return `<div class="wx-detail">
+    <div class="wx-top">
+      <span class="wx-big">${day.emoji}</span>
+      <span class="wx-hilo"><b>${Math.round(day.hi)}°</b><i>${Math.round(day.lo)}°</i></span>
+      <div class="wx-spark-wrap">${wxSparkline(day, 360, 46)}</div>
+    </div>
+    <div class="wx-parts">${parts}</div>
+  </div>`;
+}
+
+// Compact weather block for the narrow Week columns.
+function wxWeekPanel(day) {
+  if (!day) return '';
+  const rows = (day.parts || []).map((p) => {
+    const rain = p.pop >= 25 ? `<em>${p.pop}%</em>` : '';
+    return `<div class="wx-wp"><span class="k">${PART_SHORT[p.key]}</span>` +
+      `<span class="e">${p.emoji}</span><span class="t">${p.temp}°</span>${rain}</div>`;
+  }).join('');
+  return `<div class="wx-wk">
+    <div class="wx-wk-hilo">${day.emoji} <b>${Math.round(day.hi)}°</b> ${Math.round(day.lo)}°</div>
+    <div class="wx-wk-spark">${wxSparkline(day, 150, 30)}</div>
+    <div class="wx-wk-parts">${rows}</div>
+  </div>`;
+}
+
 // ---- Agenda view -----------------------------------------------------------
 function renderAgenda() {
   const el = $('#agenda');
@@ -77,7 +142,6 @@ function renderAgenda() {
     const header = d.toLocaleDateString([], { weekday: 'long' });
     const sub = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     const wx = weatherByDate[wxKey(d)];
-    const wxHtml = wx ? ` <span class="wx">${wx.emoji} ${Math.round(wx.hi)}°/${Math.round(wx.lo)}°</span>` : '';
     const rows = evs.map((e) => {
       const time = evIsAllDay(e) ? 'All day'
         : evStart(e).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -87,7 +151,7 @@ function renderAgenda() {
         <span class="title">${escapeHtml(e.summary || '(no title)')}</span>
       </div>`;
     }).join('');
-    return `<div class="day-group"><div class="day-header">${header} <small>${sub}</small>${wxHtml}</div>${rows}</div>`;
+    return `<div class="day-group"><div class="day-header">${header} <small>${sub}</small></div>${wxAgendaPanel(wx)}${rows}</div>`;
   }).join('');
 
   $$('#agenda .event').forEach((row) =>
@@ -118,13 +182,10 @@ function renderWeek() {
         <span class="t">${t}</span>${escapeHtml(e.summary || '')}</div>`;
     }).join('');
     const wx = weatherByDate[wxKey(day)];
-    const wxHtml = wx
-      ? `<div class="wx"><span class="em">${wx.emoji}</span> ${Math.round(wx.hi)}°/${Math.round(wx.lo)}°</div>`
-      : '';
     html += `<div class="weekcol ${isToday ? 'today' : ''}">
       <h3><span class="dow">${day.toLocaleDateString([], { weekday: 'short' })}</span>
       <span class="dnum">${day.getDate()}</span></h3>
-      ${wxHtml}
+      ${wxWeekPanel(wx)}
       <div class="col-scroll">${items}</div>
     </div>`;
   }
@@ -394,10 +455,11 @@ async function loadWeather() {
     if (!w || w.unavailable) return;
     $('#wIcon').textContent = w.emoji;
     $('#wTemp').textContent = Math.round(w.temp) + '°';
-    $('#wHiLo').textContent = `H ${Math.round(w.hi)}°  L ${Math.round(w.lo)}°`;
+    const feels = w.feels != null ? ` · feels ${Math.round(w.feels)}°` : '';
+    $('#wHiLo').textContent = `H ${Math.round(w.hi)}° L ${Math.round(w.lo)}°${feels}`;
     $('#weather').classList.remove('hidden');
     weatherByDate = {};
-    (w.daily || []).forEach((d) => { weatherByDate[d.date] = { emoji: d.emoji, hi: d.hi, lo: d.lo }; });
+    (w.daily || []).forEach((d) => { weatherByDate[d.date] = d; }); // full day incl. parts/hourly
     // Forecast may arrive after events render — repaint the day-based views.
     renderAgenda();
     renderWeek();
