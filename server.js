@@ -347,6 +347,10 @@ app.post('/api/bridge/push-list/:name', bridgeAuth, express.text({ type: '*/*' }
   bridge.setListMirror(req.params.name, names);
   res.json({ ok: true, ...bridge.status() });
 });
+// Simple per-list write-back for Shortcuts: returns {add:[…], remove:[…]} for
+// that list and clears them. e.g. GET /api/bridge/apply/Shopping
+app.get('/api/bridge/apply/:name', bridgeAuth, (req, res) => res.json(bridge.drainList(req.params.name)));
+
 // iPad pulls the wall's pending edits, applies them to Reminders, then acks.
 app.get('/api/bridge/pull', bridgeAuth, (req, res) => res.json(bridge.pullOps()));
 app.post('/api/bridge/ack', bridgeAuth, (req, res) =>

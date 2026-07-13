@@ -49,30 +49,24 @@ If not, screenshot the Shortcut and tell me what you see — we'll debug togethe
 
 ## Stage 2 — "Apply Wall Edits" (write-back)
 
-Create a Shortcut named **Apply Wall Edits**. The logic:
+The wall exposes `GET /api/bridge/apply/<list>` which returns `{add:[…], remove:[…]}`
+for that list (and clears it). So per list it's: ask the wall what changed, add
+those, remove those. No JSON typing, no branching — empty lists just loop zero times.
 
-> Ask the wall for pending edits, apply each to Reminders, then acknowledge them.
+Create a Shortcut named **Apply Wall Edits**. Replace `PI` with your Pi address.
 
-1. **Get Contents of URL** → GET `http://10.0.0.202:3000/api/bridge/pull`
-2. **Get Dictionary from Input** (parse the response).
-3. **Get Dictionary Value** → `ops` (the list of edits).
-4. **Get Dictionary Value** → `token` (save as variable `Token`).
-5. **Repeat with Each** (input = `ops`):
-   - **Get Dictionary Value** `op` (the kind), `list`, `title` from the Repeat Item.
-   - **If** `op` **is** `add`:
-     - **Add New Reminder** → title = `title`, list = `list`.
-   - **Otherwise If** `op` **is** `remove` **or** `complete`:
-     - **Find Reminders** → where List is `list` **and** Name is `title`.
-     - **Remove Reminders** (input = those found).
-   - *(End If)*
-6. **If** `Token` is **greater than** `0`:
-   - **Get Contents of URL** → POST `http://10.0.0.202:3000/api/bridge/ack`,
-     Request Body JSON: `token` = `Token`.
+**Shopping:**
+1. **Get Contents of URL** → GET `PI/api/bridge/apply/Shopping`
+2. **Get Dictionary Value** → key **`add`** in (Contents of URL) → *Repeat with Each* →
+   **Add New Reminder** (Repeat Item) to list **Shopping**.
+3. **Get Dictionary Value** → key **`remove`** in (Contents of URL) → *Repeat with Each* →
+   **Find Reminders** (List is **Shopping**, Name is **Repeat Item**) → **Remove Reminders**.
+
+**Costco:** repeat the same three-step block with `Costco` and `.../apply/Costco`.
 
 **Behavior note:** checking an item off at the wall **removes** it from Reminders
-(the "got it, cross it off" model). That's the reliable path — Shortcuts can add and
-remove reminders cleanly, but has no solid "mark complete" action. If you'd rather
-*keep* completed items, tell me and we'll adjust.
+(the "got it, cross it off" model) — Shortcuts adds and removes reliably but has no
+solid "mark complete" action. If you'd rather *keep* completed items, tell me.
 
 ---
 

@@ -86,6 +86,22 @@ export function ackOps(token) {
   ops = ops.filter((o) => o.id > token); // drop everything the iPad confirmed applying
   return { remaining: ops.length };
 }
+
+// Simple per-list write-back for Shortcuts: return the names to add and remove
+// for one list, and clear those ops (drain). A wall check-off/delete => remove.
+export function drainList(name) {
+  const add = [], remove = [];
+  const keep = [];
+  for (const o of ops) {
+    if (o.list !== name) { keep.push(o); continue; }
+    if (o.op === 'add') add.push(o.title);
+    else if (o.op === 'remove') remove.push(o.title);
+    else if (o.op === 'complete' && o.done) remove.push(o.title);
+    // 'complete' with done=false (un-check) is ignored
+  }
+  ops = keep;
+  return { add, remove };
+}
 export function status() {
   return {
     lastPushAt,
