@@ -72,6 +72,33 @@ Drop `.jpg/.png` files into a `photos/` folder next to `server.js` for the scree
 
 ## 3. Raspberry Pi kiosk setup
 
+### Automated (recommended)
+
+Install Raspberry Pi OS (64-bit) and a **modern Node** (see NodeSource steps below —
+Node 18+ is required), copy the project to the Pi (e.g. `git clone`), set up your
+`.env` (and copy `token.json` from wherever you first ran "Connect Google"), then:
+
+```bash
+cd family-calendar
+./setup-kiosk.sh
+sudo reboot
+```
+
+`setup-kiosk.sh` installs Chromium + the emoji font, runs the server as a systemd
+service (`familycal`), disables screen blanking, and auto-launches the fullscreen
+kiosk on boot (via `kiosk.sh`). Handy commands afterward:
+
+```bash
+systemctl status familycal          # is the server running?
+journalctl -u familycal -f          # live server logs
+sudo systemctl restart familycal    # after a git pull
+```
+
+The manual steps below are what the script automates — read them if you want to
+customize or debug.
+
+### Manual setup
+
 Install Raspberry Pi OS (64-bit). Then install Chromium and a **modern Node**:
 
 ```bash
