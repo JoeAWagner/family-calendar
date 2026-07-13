@@ -7,8 +7,15 @@ import * as album from './icloudalbum.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// A version id the frontend polls; when it changes (after an auto-update +
+// service restart) the kiosk browser reloads itself to pick up new code.
+let VERSION;
+try { VERSION = execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim(); }
+catch { VERSION = 'dev'; }
 
 const PORT = process.env.PORT || 3000;
 const CALENDAR_ID = process.env.CALENDAR_ID || 'primary';
@@ -106,6 +113,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/config', (req, res) => {
   res.json({ authed: DEMO || isAuthed(), demo: DEMO, idleMinutes: IDLE_MINUTES });
 });
+
+// Frontend polls this and reloads itself when it changes (post auto-update).
+app.get('/api/version', (req, res) => res.json({ version: VERSION }));
 
 app.get('/api/auth/login', (req, res) => {
   if (!oauth) return res.status(400).send('No Google credentials configured.');

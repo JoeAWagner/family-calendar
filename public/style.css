@@ -311,19 +311,26 @@ body.night .navarrow { background: #2a2e39; }
 @keyframes kenburns { from { transform: scale(1) translateY(0); } to { transform: scale(1.08) translateY(-1%); } }
 #ssOverlay {
   position: absolute; left: 0; right: 0; bottom: 0; text-align: center; color: #fff;
-  padding: 80px 40px 46px; background: linear-gradient(to top, rgba(0,0,0,.7), transparent);
+  padding: 90px 40px 52px; background: linear-gradient(to top, rgba(0,0,0,.75), transparent);
 }
-#ssClock { font-size: 74px; font-weight: 800; line-height: 1; text-shadow: 0 2px 24px rgba(0,0,0,.85); }
+/* Today's temperature curve — large + bright so it reads from across the room */
+#ssCurve { width: min(940px, 84%); height: 96px; margin: 0 auto 20px; }
+#ssCurve .wx-spark { width: 100%; height: 100%; }
+#ssCurve .wx-line { stroke: #ffd27d; stroke-width: 4; filter: drop-shadow(0 2px 6px rgba(0,0,0,.85)); }
+#ssCurve .wx-area { fill: #ffd27d; opacity: .16; }
+#ssCurve .wx-rain { fill: #9ecbff; opacity: .75; }
+#ssCurve .wx-now  { stroke: #fff; opacity: .6; stroke-width: 2; }
+#ssClock { font-size: 108px; font-weight: 800; line-height: 1; text-shadow: 0 2px 28px rgba(0,0,0,.9); }
 #ssMeta {
-  margin-top: 12px; display: flex; gap: 26px; justify-content: center; align-items: center;
-  font-size: 27px; font-weight: 700; text-shadow: 0 2px 16px rgba(0,0,0,.9); flex-wrap: wrap;
+  margin-top: 16px; display: flex; gap: 34px; justify-content: center; align-items: center;
+  font-size: 36px; font-weight: 700; text-shadow: 0 2px 18px rgba(0,0,0,.95); flex-wrap: wrap;
 }
 #ssNext { opacity: .95; }
 #ssForecast {
-  margin-top: 16px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
-  font-size: 21px; font-weight: 700; text-shadow: 0 2px 12px rgba(0, 0, 0, .9);
+  margin-top: 20px; display: flex; gap: 28px; justify-content: center; flex-wrap: wrap;
+  font-size: 29px; font-weight: 700; text-shadow: 0 2px 14px rgba(0, 0, 0, .95);
 }
-.ss-fc { opacity: .92; }
+.ss-fc { opacity: .95; }
 .ss-fc b { font-weight: 800; }
 .ss-fc i { font-style: normal; color: #bfe0ff; }
 

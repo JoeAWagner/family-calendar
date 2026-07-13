@@ -442,6 +442,9 @@ function updateScreensaverInfo() {
   $('#ssForecast').innerHTML = soon.map((p) =>
     `<span class="ss-fc"><b>${p.today ? p.label : 'Tmrw ' + p.label}</b> ${p.emoji} ${p.temp}°` +
     `${p.pop >= 25 ? ` <i>💧${p.pop}%</i>` : ''}</span>`).join('');
+  // Today's temperature curve (rendered large + bright for across-the-room legibility).
+  const today = weatherFull?.daily?.[0];
+  $('#ssCurve').innerHTML = today ? wxSparkline(today, 800, 96) : '';
 }
 function stopScreensaver() {
   $('#screensaver').classList.add('hidden');
@@ -746,6 +749,17 @@ function oskBackspace() {
 function showKeyboard() { $('#osk')?.classList.add('show'); }
 function hideKeyboard() { $('#osk')?.classList.remove('show'); oskShift = false; }
 
+// ---- Auto-reload after an update -------------------------------------------
+// When the server's version changes (git pull + restart), reload to get new code.
+let appVersion = null;
+async function checkVersion() {
+  try {
+    const { version } = await api('/api/version');
+    if (appVersion && version && version !== appVersion) location.reload();
+    if (version) appVersion = version;
+  } catch {}
+}
+
 // ---- Boot ------------------------------------------------------------------
 async function boot() {
   try { config = await api('/api/config'); } catch {}
@@ -755,10 +769,12 @@ async function boot() {
   await loadPhotos();
   await loadEvents();
   loadWeather();
+  checkVersion();
   resetIdle();
   // Re-sync with Google every 2 minutes; weather every 15.
   setInterval(loadEvents, 2 * 60 * 1000);
   setInterval(loadWeather, 15 * 60 * 1000);
   setInterval(loadPhotos, 30 * 60 * 1000); // pick up newly-added album photos
+  setInterval(checkVersion, 3 * 60 * 1000); // reload after an auto-update
 }
 boot();

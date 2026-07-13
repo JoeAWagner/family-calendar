@@ -77,10 +77,44 @@ X-GNOME-Autostart-enabled=true
 EOF
 sudo chown -R "$TARGET_USER":"$TARGET_USER" "$AUTOSTART_DIR" 2>/dev/null || true
 
+echo "==> Installing daily auto-update timer…"
+chmod +x "$APP_DIR/update.sh"
+# Let the update job restart the service without a password prompt.
+echo "$TARGET_USER ALL=(root) NOPASSWD: /bin/systemctl restart familycal, /usr/bin/systemctl restart familycal" \
+  | sudo tee /etc/sudoers.d/familycal >/dev/null
+sudo chmod 440 /etc/sudoers.d/familycal
+sudo tee /etc/systemd/system/familycal-update.service >/dev/null <<EOF
+[Unit]
+Description=Family Calendar auto-update (git pull + restart)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=$TARGET_USER
+WorkingDirectory=$APP_DIR
+ExecStart=$APP_DIR/update.sh
+EOF
+sudo tee /etc/systemd/system/familycal-update.timer >/dev/null <<EOF
+[Unit]
+Description=Run Family Calendar auto-update daily
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now familycal-update.timer
+
 echo ""
 echo "== Done =="
 echo "  Server:   sudo systemctl status familycal   (logs: journalctl -u familycal -f)"
 echo "  Kiosk:    reboot to launch it  ->  sudo reboot"
+echo "  Update:   daily at 04:00 (only if this repo has a GitHub 'origin' remote)"
+echo "            run now with:  ./update.sh"
 echo ""
 echo "  If Google isn't connected yet, open http://localhost:3000 once (keyboard"
 echo "  attached) and tap 'Connect Google', or copy token.json from your PC into"

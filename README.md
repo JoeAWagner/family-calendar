@@ -173,6 +173,34 @@ saving) rather than overlaying black.
 
 ---
 
+## 4. Auto-update from GitHub
+
+`setup-kiosk.sh` installs a **daily timer** (04:00) that runs `update.sh`:
+`git pull` (fast-forward only) → `npm install` if deps changed → restart the
+service. The kiosk browser polls `/api/version` and **reloads itself** when the
+code changes, so updates land on the wall with no interaction.
+
+It only does anything once the repo has a GitHub `origin` remote. To set that up:
+
+```bash
+# On your PC (one time): create an empty repo on github.com, then:
+cd C:\Dev\family-calendar
+git remote add origin git@github.com:YOURNAME/family-calendar.git
+git push -u origin main        # or 'master' — match your branch name
+
+# On the Pi: clone from GitHub instead of copying files, then run setup.
+git clone git@github.com:YOURNAME/family-calendar.git
+cd family-calendar
+cp /path/to/.env .env          # .env + token.json are gitignored; copy them over
+bash setup-kiosk.sh
+```
+
+After that, every `git push` from your PC auto-deploys to the wall within a day
+(or run `./update.sh` on the Pi to pull immediately). Local edits on the Pi are
+never clobbered — a non-fast-forward just skips the update.
+
+---
+
 ## Features / how it works
 
 - **Agenda + Week + Month views** — synced from Google, refreshed every 2 min.
