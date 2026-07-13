@@ -102,6 +102,20 @@ export function drainList(name) {
   ops = keep;
   return { add, remove };
 }
+
+// Text-based drain for one kind ('add' or 'remove'), for one list. Returns the
+// names as newline-separated text — the most Shortcuts-friendly format.
+export function drainKindText(name, kind) {
+  const out = [], keep = [];
+  for (const o of ops) {
+    const isAdd = o.op === 'add';
+    const isRemove = o.op === 'remove' || (o.op === 'complete' && o.done);
+    const match = o.list === name && ((kind === 'add' && isAdd) || (kind === 'remove' && isRemove));
+    if (match) out.push(o.title); else keep.push(o);
+  }
+  ops = keep;
+  return out.join('\n');
+}
 export function status() {
   return {
     lastPushAt,

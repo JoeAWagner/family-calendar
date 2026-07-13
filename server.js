@@ -351,6 +351,13 @@ app.post('/api/bridge/push-list/:name', bridgeAuth, express.text({ type: '*/*' }
 // that list and clears them. e.g. GET /api/bridge/apply/Shopping
 app.get('/api/bridge/apply/:name', bridgeAuth, (req, res) => res.json(bridge.drainList(req.params.name)));
 
+// Text versions (most Shortcuts-friendly): newline-separated names, drained.
+// GET /api/bridge/adds/Shopping and /api/bridge/removes/Shopping
+app.get('/api/bridge/adds/:name', bridgeAuth, (req, res) =>
+  res.type('text/plain').send(bridge.drainKindText(req.params.name, 'add')));
+app.get('/api/bridge/removes/:name', bridgeAuth, (req, res) =>
+  res.type('text/plain').send(bridge.drainKindText(req.params.name, 'remove')));
+
 // iPad pulls the wall's pending edits, applies them to Reminders, then acks.
 app.get('/api/bridge/pull', bridgeAuth, (req, res) => res.json(bridge.pullOps()));
 app.post('/api/bridge/ack', bridgeAuth, (req, res) =>

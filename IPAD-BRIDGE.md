@@ -49,24 +49,34 @@ If not, screenshot the Shortcut and tell me what you see — we'll debug togethe
 
 ## Stage 2 — "Apply Wall Edits" (write-back)
 
-The wall exposes `GET /api/bridge/apply/<list>` which returns `{add:[…], remove:[…]}`
-for that list (and clears it). So per list it's: ask the wall what changed, add
-those, remove those. No JSON typing, no branching — empty lists just loop zero times.
+Uses two **plain-text** endpoints per list (newline-separated names), which are the
+most reliable format for Shortcuts — each item is unambiguously text:
+`GET /api/bridge/adds/<list>` and `GET /api/bridge/removes/<list>` (both drain).
 
 Create a Shortcut named **Apply Wall Edits**. Replace `PI` with your Pi address.
 
-**Shopping:**
-1. **Get Contents of URL** → GET `PI/api/bridge/apply/Shopping`
-2. **Get Dictionary Value** → key **`add`** in (Contents of URL) → *Repeat with Each* →
-   **Add New Reminder** (Repeat Item) to list **Shopping**.
-3. **Get Dictionary Value** → key **`remove`** in (Contents of URL) → *Repeat with Each* →
-   **Find Reminders** (List is **Shopping**, Name is **Repeat Item**) → **Remove Reminders**.
+**Shopping — additions:**
+1. **Get Contents of URL** → GET `PI/api/bridge/adds/Shopping`
+2. **If** [Contents of URL] **has any value**:
+   - **Split Text** → (Contents of URL) by **New Lines**
+   - **Repeat with Each** (Split Text) → **Add New Reminder** (Repeat Item) to **Shopping**
+   - *(End Repeat / End If)*
 
-**Costco:** repeat the same three-step block with `Costco` and `.../apply/Costco`.
+**Shopping — removals:**
+3. **Get Contents of URL** → GET `PI/api/bridge/removes/Shopping`
+4. **If** [Contents of URL] **has any value**:
+   - **Split Text** → by **New Lines**
+   - **Repeat with Each** → **Find Reminders** (List is **Shopping**, Name is **Repeat Item**) → **Remove Reminders**
+
+**Costco:** repeat both blocks with `Costco` and the `.../adds/Costco` + `.../removes/Costco` URLs.
+
+Key point: **Repeat Item comes from Split Text**, so it's plain text — that's what
+makes "Add New Reminder" accept it as the title. The **If … has any value** guards
+skip empty runs cleanly.
 
 **Behavior note:** checking an item off at the wall **removes** it from Reminders
 (the "got it, cross it off" model) — Shortcuts adds and removes reliably but has no
-solid "mark complete" action. If you'd rather *keep* completed items, tell me.
+solid "mark complete" action.
 
 ---
 
