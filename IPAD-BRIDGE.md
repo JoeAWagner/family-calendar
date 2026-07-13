@@ -21,39 +21,29 @@ We build this in **three stages** — get each working before moving on:
 
 Create a new Shortcut named **Push Lists to Wall**. The logic:
 
-> For each list (Shopping, Costco): find its reminders, collect each one's
-> title + completed status into a list, then POST all of it to the wall.
+> For each list, grab the to-buy reminders' names, join them with new lines, and
+> POST that text to the wall. No JSON, no dictionaries — 3 actions per list.
 
-Actions, in order:
+Replace `PI` below with your Pi's address, e.g. `http://192.168.1.50:3000`.
 
-1. **Text** → type `Shopping`. (We'll reuse this pattern per list.)
-2. **Find Reminders** → *All reminders where List is `Shopping`* (do **not** filter by
-   completed — we want both done and not-done).
-3. **Repeat with Each** (input = the Find Reminders result):
-   - **Get Details of Reminders** → detail **Name** (input: Repeat Item) → this is the title.
-   - **Get Details of Reminders** → detail **Is Completed** (input: Repeat Item).
-   - **Dictionary** → two keys:
-     - `title` = the Name from above
-     - `done`  = the Is Completed from above
-   - **Add to Variable** → `ShoppingItems`.
-4. Repeat steps 2–3 for **Costco** into a variable `CostcoItems`.
-5. **Dictionary** → build the payload:
-   - key `lists` → type **Dictionary**:
-     - `Shopping` → type **Array** → value = `ShoppingItems`
-     - `Costco`   → type **Array** → value = `CostcoItems`
-6. **Get Contents of URL**:
-   - URL: `http://10.0.0.202:3000/api/bridge/push`
+**Shopping:**
+1. **Find Reminders** → *List is `Shopping`*, and *Is Completed is `Off`* (only to-buy items).
+2. **Combine Text** → input = the Find Reminders result, separator = **New Lines**.
+3. **Get Contents of URL** →
+   - URL: `PI/api/bridge/push-list/Shopping`
    - Method: **POST**
-   - Request Body: **JSON** = the Dictionary from step 5
+   - Request Body: **Text** = the Combined Text from step 2
+
+**Costco:** repeat the same three actions with `Costco` (and the URL `.../push-list/Costco`).
+
+That's it — six actions total.
 
 ### Test Stage 1
-1. On your PC: `npm start`, open `http://localhost:3000`, go to the **Lists** tab
-   (it'll be empty — bridge mode, nothing pushed yet).
-2. On the iPad: run **Push Lists to Wall** once.
-3. The PC's Lists tab should now show your **real Shopping and Costco items**, with
-   checked ones struck through. 🎉
+1. On the iPad, run **Push Lists to Wall** once.
+2. Look at the wall (or open `PI/api/list/Shopping` in a browser): your real
+   Shopping and Costco items should appear. 🎉
 
-If it doesn't, screenshot the Shortcut and the app — we'll debug together.
+If not, screenshot the Shortcut and tell me what you see — we'll debug together.
 
 ---
 

@@ -38,11 +38,23 @@ export function listNames() {
 
 // The iPad reports the authoritative Reminders state. We replace the mirror, then
 // re-apply any not-yet-acked wall edits so optimistic changes don't flicker away.
+// Accept items as {title,done} objects OR plain strings (simpler for Shortcuts).
+function normItem(i) {
+  return typeof i === 'string' ? { title: i, done: false } : { title: String(i.title), done: !!i.done };
+}
+
 export function setMirror(lists) {
   for (const [name, items] of Object.entries(lists || {})) {
-    mirror[name] = (items || []).map((i) => ({ title: String(i.title), done: !!i.done }));
+    mirror[name] = (items || []).map(normItem);
   }
   for (const o of ops) applyOpToMirror(o);
+  lastPushAt = Date.now();
+}
+
+// Replace just one list (used by the simple newline-text endpoint).
+export function setListMirror(name, items) {
+  mirror[name] = (items || []).map(normItem);
+  for (const o of ops) if (o.list === name) applyOpToMirror(o);
   lastPushAt = Date.now();
 }
 

@@ -340,6 +340,13 @@ app.post('/api/bridge/push', bridgeAuth, (req, res) => {
   bridge.setMirror(req.body.lists || {});
   res.json({ ok: true, ...bridge.status() });
 });
+// Simplest path for Shortcuts: POST one list as newline-separated names in the
+// body (Content-Type doesn't matter). e.g. POST /api/bridge/push-list/Shopping
+app.post('/api/bridge/push-list/:name', bridgeAuth, express.text({ type: '*/*' }), (req, res) => {
+  const names = String(req.body || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  bridge.setListMirror(req.params.name, names);
+  res.json({ ok: true, ...bridge.status() });
+});
 // iPad pulls the wall's pending edits, applies them to Reminders, then acks.
 app.get('/api/bridge/pull', bridgeAuth, (req, res) => res.json(bridge.pullOps()));
 app.post('/api/bridge/ack', bridgeAuth, (req, res) =>
