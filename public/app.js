@@ -64,6 +64,7 @@ function switchView(name) {
   if (name === 'month') renderMonth();
   if (name === 'week') renderWeek();
   if (name === 'list') renderList();
+  if (name === 'todo') renderTodo();
   if (name === 'doodle') fitCanvas();
 }
 
@@ -554,6 +555,59 @@ async function addItem() {
 
 $('#addItemBtn').addEventListener('click', addItem);
 $('#newItem').addEventListener('keydown', (e) => { if (e.key === 'Enter') addItem(); });
+
+// ---- To-Do (wall-hosted, stored on the Pi) ---------------------------------
+let todoData = { items: [] };
+
+async function renderTodo() {
+  try { todoData = await api('/api/todo'); } catch { todoData = { items: [] }; }
+  paintTodo();
+}
+function paintTodo() {
+  const items = (todoData.items || []).slice().sort((a, b) => Number(a.done) - Number(b.done));
+  todoData.items = items;
+  const remaining = items.filter((i) => !i.done).length;
+  $('#todoCount').textContent = items.length ? `${remaining} to do` : '';
+  const wrap = $('#todoItems');
+  if (!items.length) { wrap.innerHTML = '<div class="empty">Nothing to do ✨</div>'; return; }
+  wrap.innerHTML = items.map((i) => `
+    <div class="item ${i.done ? 'done' : ''}" data-uid="${i.uid}">
+      <div class="check">${i.done ? '✓' : ''}</div>
+      <div class="label">${escapeHtml(i.title)}</div>
+      <button class="del" title="Remove">✕</button>
+    </div>`).join('');
+  $$('#todoItems .item').forEach((row) => {
+    const uid = row.dataset.uid;
+    row.querySelector('.check').addEventListener('click', () => toggleTodo(uid));
+    row.querySelector('.label').addEventListener('click', () => toggleTodo(uid));
+    row.querySelector('.del').addEventListener('click', (e) => { e.stopPropagation(); deleteTodo(uid); });
+  });
+}
+async function toggleTodo(uid) {
+  const item = (todoData.items || []).find((i) => i.uid === uid);
+  if (!item) return;
+  item.done = !item.done; paintTodo();
+  await fetch('/api/todo/' + uid, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: item.done }),
+  }).catch(() => {});
+}
+async function deleteTodo(uid) {
+  todoData.items = (todoData.items || []).filter((i) => i.uid !== uid); paintTodo();
+  await fetch('/api/todo/' + uid, { method: 'DELETE' }).catch(() => {});
+}
+async function addTodo() {
+  const input = $('#newTodo');
+  const title = input.value.trim();
+  if (!title) return;
+  input.value = '';
+  const item = await fetch('/api/todo', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }),
+  }).then((r) => r.json()).catch(() => null);
+  if (item && item.uid) (todoData.items ||= []).push(item);
+  paintTodo();
+}
+$('#addTodoBtn').addEventListener('click', addTodo);
+$('#newTodo').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTodo(); });
 
 // ---- Weather ---------------------------------------------------------------
 let weatherByDate = {}; // 'YYYY-MM-DD' -> full day object

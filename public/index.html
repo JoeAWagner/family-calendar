@@ -27,6 +27,7 @@
         <button data-view="week">Week</button>
         <button data-view="month">Month</button>
         <button data-view="list">🛒 Lists</button>
+        <button data-view="todo">✅ To-Do</button>
         <button data-view="doodle">Doodle</button>
         <button id="addBtn">+ Add</button>
       </nav>
@@ -45,6 +46,19 @@
           <button class="navarrow" id="weekNext">›</button>
         </div>
         <div id="weekGrid"></div>
+      </section>
+
+      <!-- Wall-hosted To-Do list -->
+      <section id="todo" class="view">
+        <div id="todoHeader">
+          <h2>To-Do</h2>
+          <span id="todoCount"></span>
+        </div>
+        <div id="addTodoRow">
+          <input id="newTodo" type="text" inputmode="none" placeholder="Add a to-do…" />
+          <button id="addTodoBtn" class="btn">Add</button>
+        </div>
+        <div id="todoItems"></div>
       </section>
 
       <!-- Reminders lists (Shopping / Costco / …) -->

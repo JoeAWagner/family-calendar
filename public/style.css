@@ -185,11 +185,16 @@ body.night .navarrow { background: #2a2e39; }
 #listHeader { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; }
 #listTitle { font-size: 30px; font-weight: 800; margin: 0; }
 #listCount { color: var(--muted); font-size: 18px; font-weight: 700; }
-#addItemRow { display: flex; gap: 12px; margin-bottom: 18px; }
-#newItem {
+#addItemRow, #addTodoRow { display: flex; gap: 12px; margin-bottom: 18px; }
+#newItem, #newTodo {
   flex: 1; font-size: 22px; padding: 16px 18px; border-radius: 16px;
   border: 2px solid var(--line); background: #fff; color: var(--ink);
 }
+/* To-Do reuses the .item / .check / .label / .del styles below */
+#todo { max-width: 820px; margin: 0 auto; }
+#todoHeader { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; }
+#todoHeader h2 { font-size: 30px; font-weight: 800; margin: 0; }
+#todoCount { color: var(--muted); font-size: 18px; font-weight: 700; }
 .item {
   display: flex; align-items: center; gap: 16px; background: var(--panel);
   border-radius: 16px; padding: 16px 18px; margin: 10px 0; box-shadow: var(--shadow);
@@ -356,7 +361,8 @@ body.night #addBtn { background: var(--accent-2); color: #fff; }
 body.night .card input[type=text],
 body.night .card input[type=date],
 body.night .card input[type=time],
-body.night #newItem { background: #2a2e39; border-color: var(--line); color: var(--ink); }
+body.night #newItem,
+body.night #newTodo { background: #2a2e39; border-color: var(--line); color: var(--ink); }
 body.night .wx-detail { background: linear-gradient(135deg, #241f2b, #1b2630); }
 body.night .wx-part,
 body.night .ws-now,

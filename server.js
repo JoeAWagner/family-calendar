@@ -357,6 +357,42 @@ app.post('/api/bridge/ack', bridgeAuth, (req, res) =>
   res.json(bridge.ackOps(Number(req.body.token) || 0)));
 app.get('/api/bridge/status', bridgeAuth, (req, res) => res.json(bridge.status()));
 
+// ---- Wall-hosted To-Do list (stored on the Pi, persists across restarts) ----
+const TODO_PATH = path.join(__dirname, 'todo.json');
+let todos = [];
+try { if (fs.existsSync(TODO_PATH)) todos = JSON.parse(fs.readFileSync(TODO_PATH, 'utf8')); } catch {}
+if (DEMO && !todos.length) {
+  todos = [
+    { uid: 't1', title: 'Water the plants 🌱', done: false },
+    { uid: 't2', title: 'Call the plumber', done: false },
+    { uid: 't3', title: 'RSVP to the party', done: true },
+  ];
+}
+function saveTodos() {
+  if (DEMO) return; // don't write demo data to disk
+  try { fs.writeFileSync(TODO_PATH, JSON.stringify(todos, null, 2)); }
+  catch (e) { console.warn('todo save failed:', e.message); }
+}
+
+app.get('/api/todo', (req, res) => res.json({ items: todos }));
+app.post('/api/todo', (req, res) => {
+  const title = (req.body.title || '').trim();
+  if (!title) return res.status(400).json({ error: 'Empty title' });
+  const item = { uid: 't' + Date.now(), title, done: false };
+  todos.push(item); saveTodos();
+  res.json(item);
+});
+app.patch('/api/todo/:uid', (req, res) => {
+  const done = !!req.body.done;
+  const item = todos.find((t) => t.uid === req.params.uid);
+  if (item) { item.done = done; saveTodos(); }
+  res.json({ uid: req.params.uid, done });
+});
+app.delete('/api/todo/:uid', (req, res) => {
+  todos = todos.filter((t) => t.uid !== req.params.uid); saveTodos();
+  res.json({ ok: true });
+});
+
 // ---- Weather (Open-Meteo, free, no API key) --------------------------------
 const LAT = process.env.WEATHER_LAT;
 const LON = process.env.WEATHER_LON;
