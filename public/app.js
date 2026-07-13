@@ -698,12 +698,14 @@ function buildKeyboard() {
   };
 
   // preventDefault on press keeps the text input focused (no blur / caret loss).
-  osk.addEventListener('mousedown', (e) => e.preventDefault());
-  osk.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
-
-  osk.addEventListener('click', (e) => {
+  // Handle taps on 'pointerdown' (fires for mouse AND touch). Calling
+  // preventDefault here keeps the text input focused AND avoids the
+  // touch-to-click suppression that stopped typing on the touchscreen.
+  osk.addEventListener('pointerdown', (e) => {
     const b = e.target.closest('.osk-key');
-    if (!b || !activeInput) return;
+    if (!b) return;
+    e.preventDefault(); // keep the input focused; don't blur it
+    if (!activeInput) return;
     const act = b.dataset.act;
     if (b.dataset.char != null) {
       oskType(oskShift ? b.dataset.char.toUpperCase() : b.dataset.char);
