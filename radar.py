@@ -141,10 +141,21 @@ def main():
     presence = Presence()
     last_sent = 0.0
 
+    # Diagnostics: a silent service is useless — say *why* nothing is happening.
+    bytes_seen = 0
+    last_data = time.time()
+    last_frame = time.time()
+    warned_nodata = False
+    warned_noframe = False
+
     while True:
         chunk = ser.read(64)
+        now = time.time()
         if chunk:
             buf.extend(chunk)
+            bytes_seen += len(chunk)
+            last_data = now
+            warned_nodata = False
         if len(buf) > 4096:      # keep the buffer bounded
             del buf[:-1024]
 
@@ -160,10 +171,22 @@ def main():
                 continue
             targets = parse_targets(frame[4:28])
 
-        if targets is None:
+        if targets is not None:
+            last_frame = now
+            warned_noframe = False
+        else:
+            if (now - last_data) > 5 and not warned_nodata:
+                print(f'WARN: no bytes on {PORT} for 5s. Check: LD2450 TX -> Pi pin 10 '
+                      f'(GPIO15/RXD), 5V power, UART enabled + serial console disabled.',
+                      flush=True)
+                warned_nodata = True
+            if bytes_seen and (now - last_frame) > 5 and not warned_noframe:
+                sample = bytes(buf[:24]).hex(' ')
+                print(f'WARN: got {bytes_seen} bytes but no valid LD2450 frames — wrong baud? '
+                      f'(expect {BAUD}). Sample: {sample}', flush=True)
+                warned_noframe = True
             continue  # no fresh frame yet
 
-        now = time.time()
         state, changed, nearest = presence.update(targets, now)
 
         if changed:
