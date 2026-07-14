@@ -72,6 +72,58 @@ Drop `.jpg/.png` files into a `photos/` folder next to `server.js` for the scree
 
 ## 3. Raspberry Pi kiosk setup
 
+### Clean install from scratch (the whole thing)
+
+1. **Flash Raspberry Pi OS (64-bit, Desktop)** with Raspberry Pi Imager. In the
+   Imager's settings gear, set your **username**, **Wi-Fi**, and **enable SSH** —
+   that saves you a keyboard later.
+
+2. **Clone and install** (from the Pi, over SSH or a terminal):
+
+   ```bash
+   sudo apt update && sudo apt install -y git
+   git clone https://github.com/JoeAWagner/family-calendar.git
+   cd family-calendar
+   ```
+
+3. **Bring over the two secret files** (both gitignored, so `git clone` can't
+   supply them). From your PC:
+
+   ```bash
+   scp .env token.json joe@<pi-ip>:~/family-calendar/
+   ```
+   No `.env` yet? `cp .env.example .env` and fill it in. No `token.json`? Skip it and
+   tap **Connect Google** once on the wall (needs a keyboard attached that one time).
+
+   > ⚠️ In `.env`, **quote** `ICLOUD_ALBUM="https://…/#B0…"` — the `#` is a comment
+   > character and will otherwise silently truncate the token.
+
+4. **Run the installer** — it does everything else (Node 20, Chromium, emoji font,
+   systemd service, kiosk autostart, screen-blanking off, daily auto-update):
+
+   ```bash
+   ./setup-kiosk.sh
+   ```
+
+5. **Optional: the mmWave presence sensor** (see section 5 for wiring):
+
+   ```bash
+   ./setup-radar.sh
+   ```
+
+6. **Reboot** — it comes up straight into the calendar.
+
+   ```bash
+   sudo reboot
+   ```
+
+Check it's healthy:
+```bash
+systemctl status familycal              # the app
+systemctl status familycal-radar        # the radar (if installed)
+journalctl -u familycal -f              # live logs
+```
+
 ### Automated (recommended)
 
 Install Raspberry Pi OS (64-bit) and a **modern Node** (see NodeSource steps below —

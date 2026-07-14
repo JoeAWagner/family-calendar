@@ -19,9 +19,6 @@ echo ""
 
 command -v systemctl >/dev/null 2>&1 || { echo "!! Needs a systemd Linux (Raspberry Pi OS). Aborting."; exit 1; }
 
-NODE_BIN="$(command -v node || true)"
-[ -n "$NODE_BIN" ] || { echo "!! Node.js not found. Install Node 18+ first (see README section 3)."; exit 1; }
-
 if [ ! -f "$APP_DIR/.env" ]; then
   echo "!! No .env found in $APP_DIR."
   echo "   Copy .env.example to .env and fill it in (and copy token.json from wherever"
@@ -31,8 +28,22 @@ fi
 
 echo "==> Installing packages (chromium, emoji font, unclutter)…"
 sudo apt-get update -qq
-sudo apt-get install -y chromium-browser unclutter fonts-noto-color-emoji curl >/dev/null
+sudo apt-get install -y chromium-browser unclutter fonts-noto-color-emoji curl ca-certificates >/dev/null
 fc-cache -f >/dev/null 2>&1 || true
+
+# The app needs Node 18+ (global fetch). Raspberry Pi OS's apt Node is often far
+# older, so install from NodeSource when it's missing or too old.
+NODE_MAJOR=0
+if command -v node >/dev/null 2>&1; then
+  NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+fi
+if [ "$NODE_MAJOR" -lt 18 ]; then
+  echo "==> Installing Node 20 (found: ${NODE_MAJOR:-none}, need 18+)…"
+  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/dev/null
+  sudo apt-get install -y nodejs >/dev/null
+fi
+NODE_BIN="$(command -v node)"
+echo "    node $(node -v) at $NODE_BIN"
 
 if [ ! -d "$APP_DIR/node_modules" ]; then
   echo "==> Installing app dependencies (npm install)…"
