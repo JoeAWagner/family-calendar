@@ -15,8 +15,15 @@ APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVICE=/etc/systemd/system/familycal-radar.service
 TARGET_USER="${SUDO_USER:-$USER}"
 
-# Change to /dev/ttyUSB0 if you're using a USB-TTL adapter instead of the GPIO header.
-RADAR_PORT="${RADAR_PORT:-/dev/serial0}"
+# Prefer a USB-TTL adapter if one is plugged in (safer + clearly labelled pins);
+# otherwise fall back to the GPIO UART. Override with: RADAR_PORT=... ./setup-radar.sh
+if [ -z "${RADAR_PORT:-}" ]; then
+  if   [ -e /dev/ttyUSB0 ]; then RADAR_PORT=/dev/ttyUSB0
+  elif [ -e /dev/ttyACM0 ]; then RADAR_PORT=/dev/ttyACM0
+  else                           RADAR_PORT=/dev/serial0
+  fi
+fi
+case "$RADAR_PORT" in /dev/ttyUSB*|/dev/ttyACM*) USING_USB=1 ;; *) USING_USB=0 ;; esac
 
 echo "== Family Calendar radar setup =="
 echo "   app dir : $APP_DIR"
@@ -28,10 +35,14 @@ echo "==> Installing pyserial…"
 sudo apt-get update -qq
 sudo apt-get install -y python3-serial >/dev/null
 
-echo "==> Enabling the UART and freeing it from the serial console…"
-sudo raspi-config nonint do_serial_hw 0   2>/dev/null || true  # UART on
-sudo raspi-config nonint do_serial_cons 1 2>/dev/null || true  # console off
-sudo usermod -aG dialout "$TARGET_USER" || true
+if [ "$USING_USB" -eq 1 ]; then
+  echo "==> Using a USB-TTL adapter ($RADAR_PORT) — skipping GPIO UART setup."
+else
+  echo "==> Enabling the GPIO UART and freeing it from the serial console…"
+  sudo raspi-config nonint do_serial_hw 0   2>/dev/null || true  # UART on
+  sudo raspi-config nonint do_serial_cons 1 2>/dev/null || true  # console off
+fi
+sudo usermod -aG dialout "$TARGET_USER" || true   # needed for serial access either way
 
 echo "==> Writing $SERVICE…"
 sudo tee "$SERVICE" >/dev/null <<EOF
