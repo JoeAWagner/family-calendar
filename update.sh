@@ -10,13 +10,20 @@ git remote get-url origin >/dev/null 2>&1 || { echo "No 'origin' remote set; not
 
 SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 
+# The setup scripts chmod +x things, which Git otherwise reports as a local
+# change and which would block every future fast-forward. Ignore exec-bit churn.
+git config core.fileMode false
+
 before="$(git rev-parse HEAD)"
 git fetch --quiet origin
 branch="$(git rev-parse --abbrev-ref HEAD)"
 
 # Fast-forward only — never clobber local changes or create merge commits.
 if ! git merge --ff-only "origin/$branch" >/dev/null 2>&1; then
-  echo "Can't fast-forward (local changes or diverged) — skipping auto-update."
+  echo "Can't fast-forward — skipping auto-update. Local changes:"
+  git status --short
+  echo ""
+  echo "If those are unwanted, discard them and retry:  git checkout -- . && ./update.sh"
   exit 0
 fi
 
