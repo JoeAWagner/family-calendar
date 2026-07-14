@@ -201,6 +201,38 @@ never clobbered — a non-fast-forward just skips the update.
 
 ---
 
+## 5. mmWave presence (optional — LD2450 radar)
+
+Makes the wall wake as you walk up and sleep when the room's empty. mmWave beats a
+PIR sensor here: PIR only sees *motion*, so it would blank the screen while you stand
+still reading the calendar. mmWave detects a **stationary** person.
+
+| Radar sees | State | Wall does |
+|---|---|---|
+| nobody (for `RADAR_EMPTY_AFTER_S`) | `empty` | screen **off** (+ app blacks out) |
+| someone beyond `RADAR_NEAR_MM` | `present` | screensaver |
+| someone within `RADAR_NEAR_MM`, lingering `RADAR_ENGAGE_DWELL_S` | `engaged` | **awake on the agenda** |
+
+The **dwell** requirement is what stops someone *walking past* from waking it, and
+hysteresis (`RADAR_NEAR_EXIT_MM`) stops flicker at the boundary. A touch always wakes
+the screen regardless, and if the radar service dies the app falls back to the plain
+idle timer.
+
+**Wiring (LD2450 → Pi):** `VCC→5V (pin 2)`, `GND→GND (pin 6)`, `TX→GPIO15/RXD (pin 10)`,
+`RX→GPIO14/TXD (pin 8)`. Or use a USB-TTL adapter and set `RADAR_PORT=/dev/ttyUSB0`.
+
+```bash
+./setup-radar.sh     # installs pyserial, frees the UART, enables the service
+sudo reboot          # required (UART + dialout group)
+journalctl -u familycal-radar -f    # watch it:  -> engaged (nearest=540mm)
+```
+
+Tune the zones in `/etc/systemd/system/familycal-radar.service` (defaults: near 610mm
+= 2ft, exit 760mm, dwell 2s, empty after 45s), then `sudo systemctl daemon-reload &&
+sudo systemctl restart familycal-radar`.
+
+---
+
 ## Features / how it works
 
 - **Agenda + Week + Month views** — synced from Google, refreshed every 2 min.

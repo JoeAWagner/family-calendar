@@ -409,6 +409,32 @@ app.delete('/api/todo/:uid', (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- Presence (mmWave radar; see radar.py) ---------------------------------
+// The radar service POSTs state changes here; the wall polls it to decide
+// whether to sleep, show the screensaver, or wake to the agenda.
+let presence = { state: 'unknown', distanceMm: null, at: 0 };
+const PRESENCE_STALE_SEC = 15; // if the radar stops reporting, fall back to the idle timer
+
+app.post('/api/presence', (req, res) => {
+  const state = String(req.body.state || '').toLowerCase();
+  if (!['empty', 'present', 'engaged'].includes(state)) {
+    return res.status(400).json({ error: 'state must be empty|present|engaged' });
+  }
+  presence = { state, distanceMm: req.body.distanceMm ?? null, at: Date.now() };
+  res.json({ ok: true });
+});
+
+app.get('/api/presence', (req, res) => {
+  const ageSec = presence.at ? (Date.now() - presence.at) / 1000 : null;
+  const active = ageSec != null && ageSec < PRESENCE_STALE_SEC; // is the radar alive?
+  res.json({
+    active,
+    state: active ? presence.state : 'unknown',
+    distanceMm: presence.distanceMm,
+    ageSec,
+  });
+});
+
 // ---- Trash / recycling reminder --------------------------------------------
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const dayIndex = (n) => DAY_NAMES.indexOf(String(n || '').trim().toLowerCase());

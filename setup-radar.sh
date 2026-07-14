@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Installs the LD2450 mmWave presence service (radar.py) on the Pi.
+#
+#   Wiring (LD2450 -> Pi):
+#     VCC  -> 5V   (pin 2 or 4)
+#     GND  -> GND  (pin 6)
+#     TX   -> GPIO15 / RXD  (pin 10)
+#     RX   -> GPIO14 / TXD  (pin 8)
+#   (Or use a USB-TTL adapter and set RADAR_PORT=/dev/ttyUSB0 below.)
+#
+# Usage:  ./setup-radar.sh
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+SERVICE=/etc/systemd/system/familycal-radar.service
+TARGET_USER="${SUDO_USER:-$USER}"
+
+# Change to /dev/ttyUSB0 if you're using a USB-TTL adapter instead of the GPIO header.
+RADAR_PORT="${RADAR_PORT:-/dev/serial0}"
+
+echo "== Family Calendar radar setup =="
+echo "   app dir : $APP_DIR"
+echo "   user    : $TARGET_USER"
+echo "   port    : $RADAR_PORT"
+echo ""
+
+echo "==> Installing pyserial…"
+sudo apt-get update -qq
+sudo apt-get install -y python3-serial >/dev/null
+
+echo "==> Enabling the UART and freeing it from the serial console…"
+sudo raspi-config nonint do_serial_hw 0   2>/dev/null || true  # UART on
+sudo raspi-config nonint do_serial_cons 1 2>/dev/null || true  # console off
+sudo usermod -aG dialout "$TARGET_USER" || true
+
+echo "==> Writing $SERVICE…"
+sudo tee "$SERVICE" >/dev/null <<EOF
+[Unit]
+Description=Family Calendar mmWave presence (LD2450)
+After=familycal.service
+Wants=familycal.service
+
+[Service]
+Type=simple
+User=$TARGET_USER
+WorkingDirectory=$APP_DIR
+Environment=RADAR_PORT=$RADAR_PORT
+Environment=APP_URL=http://localhost:3000
+# Zone tuning (mm / seconds)
+Environment=RADAR_NEAR_MM=610
+Environment=RADAR_NEAR_EXIT_MM=760
+Environment=RADAR_ENGAGE_DWELL_S=2.0
+Environment=RADAR_EMPTY_AFTER_S=45
+# So display-power fallbacks (wlopm/xset) can reach the session
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/usr/bin/python3 $APP_DIR/radar.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable familycal-radar.service
+
+echo ""
+echo "== Done =="
+echo "  A REBOOT is required (UART + dialout group)."
+echo "    sudo reboot"
+echo ""
+echo "  After reboot, watch it live:"
+echo "    journalctl -u familycal-radar -f"
+echo "  You should see lines like:  -> engaged (nearest=540mm)"
+echo ""
+echo "  Tune the zones by editing $SERVICE (then: sudo systemctl daemon-reload"
+echo "  && sudo systemctl restart familycal-radar)."

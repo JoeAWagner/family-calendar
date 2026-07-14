@@ -32,9 +32,14 @@ function computeDim() {
   if (h >= 6 && h < 7) return MAX_DIM * (7 - h);        // dawn ramp up
   return MAX_DIM;                              // 23:00–06:00: dimmest
 }
+// Presence can force the dimmer (e.g. full black when the room is empty).
+let dimOverride = null;
+function setDimOverride(v) { dimOverride = v; updateDimmer(); }
 function updateDimmer() {
   const el = $('#dimmer');
-  if (el) el.style.opacity = computeDim().toFixed(3);
+  if (!el) return;
+  const v = dimOverride != null ? dimOverride : computeDim();
+  el.style.opacity = v.toFixed(3);
 }
 // Theme: auto (dark in evening), or manually forced light/dark via the toggle.
 let themeMode = localStorage.getItem('themeMode') || 'auto'; // auto | light | dark
@@ -387,8 +392,12 @@ let idleTimer = null, ssTimer = null, photos = [], photoIdx = 0;
 async function loadPhotos() { try { photos = await api('/api/photos'); } catch { photos = []; } }
 
 function resetIdle() {
+  lastTouchAt = Date.now();
   clearTimeout(idleTimer);
   if ($('#screensaver').classList.contains('hidden') === false) stopScreensaver();
+  setDimOverride(null); // a touch always brings the screen back
+  // When the radar is reporting, presence drives the screensaver — not a timer.
+  if (presenceActive) return;
   idleTimer = setTimeout(startScreensaver, config.idleMinutes * 60 * 1000);
 }
 function startScreensaver() {
@@ -450,6 +459,46 @@ function updateScreensaverInfo() {
 function stopScreensaver() {
   $('#screensaver').classList.add('hidden');
   clearInterval(ssTimer);
+}
+
+// ---- Presence (mmWave radar) ------------------------------------------------
+// empty   -> black out (radar service also cuts the backlight)
+// present -> screensaver (someone in the room, but not at the wall)
+// engaged -> awake on the agenda (someone lingering within ~2ft)
+let presenceActive = false;         // is the radar reporting at all?
+let presenceState = 'unknown';
+let lastTouchAt = 0;
+const TOUCH_GRACE_MS = 60 * 1000;   // don't let the radar fight someone using the wall
+
+async function pollPresence() {
+  let p;
+  try { p = await api('/api/presence'); } catch { return; }
+  const wasActive = presenceActive;
+  presenceActive = !!p.active;
+
+  // Radar died -> fall back to the plain idle timer.
+  if (!presenceActive) {
+    if (wasActive) { setDimOverride(null); resetIdle(); }
+    return;
+  }
+  const prev = presenceState;
+  presenceState = p.state;
+  if (presenceState !== prev) applyPresence(prev, presenceState);
+}
+
+function applyPresence(prev, state) {
+  const recentTouch = Date.now() - lastTouchAt < TOUCH_GRACE_MS;
+  if (state === 'engaged') {
+    setDimOverride(null);
+    stopScreensaver();
+    // Someone walked up and stayed — show them the agenda.
+    if (!recentTouch && prev !== 'engaged') switchView('agenda');
+  } else if (state === 'present') {
+    setDimOverride(null);
+    if (!recentTouch) startScreensaver();
+  } else if (state === 'empty') {
+    if (!recentTouch) { startScreensaver(); setDimOverride(1); }
+  }
 }
 ['mousedown', 'touchstart', 'keydown'].forEach((e) =>
   document.addEventListener(e, resetIdle, { passive: true }));
@@ -881,5 +930,7 @@ async function boot() {
   setInterval(checkVersion, 3 * 60 * 1000); // reload after an auto-update
   setInterval(loadBins, 20 * 60 * 1000);    // bin reminder appears/clears with the clock
   setInterval(checkBridgeHealth, 5 * 60 * 1000);
+  pollPresence();
+  setInterval(pollPresence, 1000);          // snappy wake when someone walks up
 }
 boot();
