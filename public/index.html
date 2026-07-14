@@ -33,6 +33,9 @@
       </nav>
     </header>
 
+    <!-- Trash / recycling reminder (shown only when relevant) -->
+    <div id="binBanner" class="hidden"></div>
+
     <main>
       <!-- Agenda -->
       <section id="agenda" class="view active"></section>
@@ -63,6 +66,7 @@
 
       <!-- Reminders lists (Shopping / Costco / …) -->
       <section id="list" class="view">
+        <div id="listWarn" class="warn-banner hidden"></div>
         <div id="listSelector"></div>
         <div id="listHeader">
           <h2 id="listTitle">Shopping</h2>
@@ -148,6 +152,7 @@
           <span id="ssWeather"></span>
           <span id="ssNext"></span>
         </div>
+        <div id="ssBin"></div>
         <div id="ssForecast"></div>
         <div id="ssCurve"></div>
       </div>

@@ -477,7 +477,9 @@ async function initLists() {
   try {
     const info = await api('/api/lists');
     listNames = info.names || [];
+    listsInfo = info;
   } catch { listNames = []; }
+  renderListWarn(); // surface a dead iPad Sync Loop
   if (!currentList && listNames.length) currentList = listNames[0];
   const sel = $('#listSelector');
   sel.innerHTML = listNames.map((n) =>
@@ -555,6 +557,49 @@ async function addItem() {
 
 $('#addItemBtn').addEventListener('click', addItem);
 $('#newItem').addEventListener('keydown', (e) => { if (e.key === 'Enter') addItem(); });
+
+// ---- Trash / recycling banner ----------------------------------------------
+let binText = '';
+async function loadBins() {
+  try {
+    const b = await api('/api/bins');
+    binText = b && b.show ? b.text : '';
+  } catch { binText = ''; }
+  const el = $('#binBanner');
+  if (binText) { el.textContent = binText; el.classList.remove('hidden'); }
+  else el.classList.add('hidden');
+  const ss = $('#ssBin');
+  if (ss) ss.textContent = binText; // also glanceable on the screensaver
+}
+
+// ---- Bridge health (is the iPad's Sync Loop still alive?) -------------------
+let listsInfo = {};
+function fmtAgo(sec) {
+  if (sec == null) return 'never';
+  if (sec < 90) return `${Math.round(sec)}s`;
+  if (sec < 5400) return `${Math.round(sec / 60)}m`;
+  if (sec < 172800) return `${Math.round(sec / 3600)}h`;
+  return `${Math.round(sec / 86400)}d`;
+}
+function renderListWarn() {
+  const el = $('#listWarn');
+  if (!el) return;
+  if (listsInfo.mode === 'bridge' && listsInfo.stale) {
+    const when = listsInfo.lastPushAgoSec == null
+      ? 'the iPad has never synced'
+      : `last synced ${fmtAgo(listsInfo.lastPushAgoSec)} ago`;
+    el.textContent = `⚠️ Lists may be out of date — ${when}. Check the iPad's Sync Loop.`;
+    el.classList.remove('hidden');
+  } else {
+    el.classList.add('hidden');
+  }
+}
+async function checkBridgeHealth() {
+  try { listsInfo = await api('/api/lists'); } catch { return; }
+  const btn = document.querySelector('nav button[data-view="list"]');
+  if (btn) btn.classList.toggle('warn', !!(listsInfo.mode === 'bridge' && listsInfo.stale));
+  if ($('#list').classList.contains('active')) renderListWarn();
+}
 
 // ---- To-Do (wall-hosted, stored on the Pi) ---------------------------------
 let todoData = { items: [] };
@@ -825,12 +870,16 @@ async function boot() {
   await loadPhotos();
   await loadEvents();
   loadWeather();
+  loadBins();
+  checkBridgeHealth();
   checkVersion();
   resetIdle();
   // Re-sync with Google every 2 minutes; weather every 15.
   setInterval(loadEvents, 2 * 60 * 1000);
   setInterval(loadWeather, 15 * 60 * 1000);
-  setInterval(loadPhotos, 30 * 60 * 1000); // pick up newly-added album photos
+  setInterval(loadPhotos, 30 * 60 * 1000);  // pick up newly-added album photos
   setInterval(checkVersion, 3 * 60 * 1000); // reload after an auto-update
+  setInterval(loadBins, 20 * 60 * 1000);    // bin reminder appears/clears with the clock
+  setInterval(checkBridgeHealth, 5 * 60 * 1000);
 }
 boot();

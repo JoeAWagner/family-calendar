@@ -285,10 +285,19 @@ function listBackend() {
   return null;
 }
 
+// If the iPad's Sync Loop dies, the lists silently go stale — surface that.
+const BRIDGE_STALE_SEC = Number(process.env.BRIDGE_STALE_MIN || 10) * 60;
+
 app.get('/api/lists', (req, res) => {
   const b = listBackend();
   if (!b) return res.json({ configured: false, names: [] });
-  res.json({ configured: true, mode: LIST_MODE, names: b.listNames() });
+  const out = { configured: true, mode: LIST_MODE, names: b.listNames() };
+  if (LIST_MODE === 'bridge') {
+    const { lastPushAgoSec } = bridge.status();
+    out.lastPushAgoSec = lastPushAgoSec;
+    out.stale = lastPushAgoSec == null || lastPushAgoSec > BRIDGE_STALE_SEC;
+  }
+  res.json(out);
 });
 
 app.get('/api/list/:name', async (req, res) => {
@@ -398,6 +407,51 @@ app.patch('/api/todo/:uid', (req, res) => {
 app.delete('/api/todo/:uid', (req, res) => {
   todos = todos.filter((t) => t.uid !== req.params.uid); saveTodos();
   res.json({ ok: true });
+});
+
+// ---- Trash / recycling reminder --------------------------------------------
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const dayIndex = (n) => DAY_NAMES.indexOf(String(n || '').trim().toLowerCase());
+const TRASH_DAY = dayIndex(process.env.TRASH_DAY);
+const RECYCLING_DAY = dayIndex(process.env.RECYCLING_DAY);
+const RECYCLING_BIWEEKLY = /^true$/i.test(process.env.RECYCLING_BIWEEKLY || '');
+const RECYCLING_ANCHOR = process.env.RECYCLING_ANCHOR; // a date that WAS a recycling week
+
+function startOfWeek(d) {
+  const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - x.getDay());
+  return x;
+}
+// For biweekly recycling: is the given date's week "on"?
+function isRecyclingWeek(date) {
+  if (!RECYCLING_BIWEEKLY || !RECYCLING_ANCHOR) return true;
+  const anchor = new Date(RECYCLING_ANCHOR + 'T00:00:00');
+  const weeks = Math.round((startOfWeek(date) - startOfWeek(anchor)) / (7 * 86400000));
+  return ((weeks % 2) + 2) % 2 === 0;
+}
+function collectionsOn(date) {
+  const out = [];
+  if (TRASH_DAY >= 0 && date.getDay() === TRASH_DAY) out.push('🗑️ Trash');
+  if (RECYCLING_DAY >= 0 && date.getDay() === RECYCLING_DAY && isRecyclingWeek(date)) out.push('♻️ Recycling');
+  return out;
+}
+
+// Shown in the evening before collection, and the morning of.
+app.get('/api/bins', (req, res) => {
+  if (TRASH_DAY < 0 && RECYCLING_DAY < 0) return res.json({ show: false });
+  const now = new Date();
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const hour = now.getHours();
+
+  const tomorrows = collectionsOn(tomorrow);
+  if (tomorrows.length && hour >= 15) {
+    return res.json({ show: true, text: `${tomorrows.join(' + ')} — put the bins out tonight` });
+  }
+  const todays = collectionsOn(today);
+  if (todays.length && hour < 12) {
+    return res.json({ show: true, text: `${todays.join(' + ')} — collection today` });
+  }
+  res.json({ show: false });
 });
 
 // ---- Weather (Open-Meteo, free, no API key) --------------------------------

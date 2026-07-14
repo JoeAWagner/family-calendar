@@ -63,6 +63,29 @@ button.active { background: var(--accent); color: #fff; box-shadow: 0 4px 12px r
 button.ghost { background: transparent; border: 2px solid var(--line); }
 button.danger, .danger { background: var(--danger); color: #fff; }
 
+/* Trash / recycling banner (below the header, all views) */
+#binBanner {
+  background: linear-gradient(135deg, #35c28b, #23b5c7); color: #fff;
+  font-size: 22px; font-weight: 800; text-align: center; padding: 12px 20px;
+  letter-spacing: .2px; z-index: 1;
+}
+body.night #binBanner { background: linear-gradient(135deg, #1f6b52, #1b5f68); }
+
+/* Stale-bridge warning inside the Lists view */
+.warn-banner {
+  background: #fff3cd; color: #7a5c00; border: 2px solid #f5c542;
+  border-radius: 14px; padding: 14px 18px; margin-bottom: 14px;
+  font-size: 19px; font-weight: 700;
+}
+body.night .warn-banner { background: #3a3016; color: #ffd97a; border-color: #7a5c00; }
+/* Little warning dot on the Lists nav button when the bridge is stale */
+nav button.warn { position: relative; }
+nav button.warn::after {
+  content: ''; position: absolute; top: 8px; right: 10px;
+  width: 12px; height: 12px; border-radius: 50%; background: #f5a623;
+  box-shadow: 0 0 0 2px var(--bg-2);
+}
+
 /* Views */
 main { flex: 1; position: relative; overflow: hidden; }
 .view { position: absolute; inset: 0; padding: 22px; overflow-y: auto; display: none; }
@@ -331,6 +354,11 @@ body.night .navarrow { background: #2a2e39; }
   font-size: 36px; font-weight: 700; text-shadow: 0 2px 18px rgba(0,0,0,.95); flex-wrap: wrap;
 }
 #ssNext { opacity: .95; }
+#ssBin:not(:empty) {
+  margin-top: 16px; display: inline-block; padding: 8px 20px; border-radius: 999px;
+  background: rgba(53, 194, 139, .85); color: #fff; font-size: 26px; font-weight: 800;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .6);
+}
 #ssForecast {
   margin-top: 20px; display: flex; gap: 28px; justify-content: center; flex-wrap: wrap;
   font-size: 29px; font-weight: 700; text-shadow: 0 2px 14px rgba(0, 0, 0, .95);
