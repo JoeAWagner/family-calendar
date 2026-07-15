@@ -113,23 +113,74 @@ def post_state(state, dist):
         print('post failed:', e, flush=True)
 
 
-def display_power(on):
-    """Best-effort across the Pi display stacks (Wayland/labwc, legacy, X11)."""
-    if on:
-        cmds = [['wlopm', '--on', '*'], ['vcgencmd', 'display_power', '1'],
-                ['xset', 'dpms', 'force', 'on']]
-    else:
-        cmds = [['wlopm', '--off', '*'], ['vcgencmd', 'display_power', '0'],
-                ['xset', 'dpms', 'force', 'off']]
-    for c in cmds:
+def _session_env():
+    """Env a Wayland/X11 client needs when launched from a systemd service."""
+    env = dict(os.environ)
+    uid = os.getuid()
+    xdg = env.get('XDG_RUNTIME_DIR') or f'/run/user/{uid}'
+    env['XDG_RUNTIME_DIR'] = xdg
+    if not env.get('WAYLAND_DISPLAY'):
         try:
-            subprocess.run(c, check=True, capture_output=True, timeout=5)
-            print(f"display {'on' if on else 'off'} via {c[0]}", flush=True)
+            for f in sorted(os.listdir(xdg)):  # e.g. wayland-0 / wayland-1
+                if f.startswith('wayland-') and not f.endswith('.lock'):
+                    env['WAYLAND_DISPLAY'] = f
+                    break
+        except OSError:
+            pass
+    env.setdefault('DISPLAY', ':0')
+    return env
+
+
+def _wlr_outputs(env):
+    """Output names from wlr-randr (labwc/wlroots), e.g. ['HDMI-A-1']."""
+    try:
+        out = subprocess.run(['wlr-randr'], capture_output=True, timeout=5,
+                             text=True, env=env).stdout
+        return [ln.split()[0] for ln in out.splitlines() if ln and not ln[0].isspace()]
+    except Exception:
+        return []
+
+
+_dp_method = None  # remember what worked, so logs aren't noisy
+
+
+def display_power(on):
+    """Turn the display output on/off. On HDMI this makes the monitor sleep,
+    which cuts its backlight — the app-blackout is only a last resort."""
+    global _dp_method
+    env = _session_env()
+    word = 'on' if on else 'off'
+
+    # 1) wlr-randr per output (the correct path on Pi 5 / Bookworm labwc).
+    outs = _wlr_outputs(env)
+    if outs:
+        ok = True
+        for name in outs:
+            try:
+                subprocess.run(['wlr-randr', '--output', name, '--' + word],
+                               check=True, capture_output=True, timeout=5, env=env)
+            except Exception:
+                ok = False
+        if ok:
+            if _dp_method != 'wlr-randr':
+                print(f"display {word} via wlr-randr {outs}", flush=True)
+                _dp_method = 'wlr-randr'
+            return True
+
+    # 2) Fallbacks for other display stacks.
+    for c in [['wlopm', '--' + word, '*'],
+              ['vcgencmd', 'display_power', '1' if on else '0'],
+              ['xset', 'dpms', 'force', word]]:
+        try:
+            subprocess.run(c, check=True, capture_output=True, timeout=5, env=env)
+            if _dp_method != c[0]:
+                print(f"display {word} via {c[0]}", flush=True)
+                _dp_method = c[0]
             return True
         except Exception:
             continue
-    # Not fatal: the app blacks itself out when state == empty.
-    print('WARN: no display-power method worked; app will black out instead', flush=True)
+
+    print(f'WARN: no display-power method worked ({word}); app blacks out instead', flush=True)
     return False
 
 

@@ -31,9 +31,9 @@ echo "   user    : $TARGET_USER"
 echo "   port    : $RADAR_PORT"
 echo ""
 
-echo "==> Installing pyserial…"
+echo "==> Installing pyserial + wlr-randr (for display power-off)…"
 sudo apt-get update -qq
-sudo apt-get install -y python3-serial >/dev/null
+sudo apt-get install -y python3-serial wlr-randr >/dev/null
 
 if [ "$USING_USB" -eq 1 ]; then
   echo "==> Using a USB-TTL adapter ($RADAR_PORT) — skipping GPIO UART setup."
@@ -62,9 +62,9 @@ Environment=RADAR_NEAR_MM=610
 Environment=RADAR_NEAR_EXIT_MM=760
 Environment=RADAR_ENGAGE_DWELL_S=2.0
 Environment=RADAR_EMPTY_AFTER_S=45
-# So display-power fallbacks (wlopm/xset) can reach the session
+# So the display-power tools can reach the Wayland/X11 session
 Environment=DISPLAY=:0
-Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=XDG_RUNTIME_DIR=/run/user/$(id -u "$TARGET_USER")
 ExecStart=/usr/bin/python3 $APP_DIR/radar.py
 Restart=always
 RestartSec=5
