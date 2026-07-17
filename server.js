@@ -20,6 +20,7 @@ catch { VERSION = 'dev'; }
 const PORT = process.env.PORT || 3000;
 const CALENDAR_ID = process.env.CALENDAR_ID || 'primary';
 const IDLE_MINUTES = Number(process.env.IDLE_MINUTES || 3);
+const PHOTO_SECONDS = Number(process.env.PHOTO_SECONDS || 8);
 const TOKEN_PATH = path.join(__dirname, 'token.json');
 const PHOTOS_DIR = path.join(__dirname, 'photos');
 // Demo mode: run the whole UI with fake events + photos, no Google login needed.
@@ -111,7 +112,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/config', (req, res) => {
-  res.json({ authed: DEMO || isAuthed(), demo: DEMO, idleMinutes: IDLE_MINUTES });
+  res.json({ authed: DEMO || isAuthed(), demo: DEMO, idleMinutes: IDLE_MINUTES, photoSeconds: PHOTO_SECONDS });
 });
 
 // Frontend polls this and reloads itself when it changes (post auto-update).

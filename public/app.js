@@ -400,23 +400,37 @@ function resetIdle() {
   if (presenceActive) return;
   idleTimer = setTimeout(startScreensaver, config.idleMinutes * 60 * 1000);
 }
+const photoMs = () => Math.max(2, config.photoSeconds || 8) * 1000;
+
 function startScreensaver() {
   $('#screensaver').classList.remove('hidden');
   updateScreensaverInfo();
   // Cycle photos if any exist; otherwise it's a calm black standby with the
   // clock, weather, and next event.
-  if (photos.length) {
-    showNextPhoto();
-    ssTimer = setInterval(showNextPhoto, 8000);
-  }
+  if (photos.length) showPhoto(photoIdx % photos.length);
 }
-function showNextPhoto() {
+// Each photo shows for a consistent photoMs regardless of file size: we preload
+// the *next* image during the current one's window so the swap is instant.
+function showPhoto(i) {
   const img = $('#ssImg');
-  // Skip a photo that fails to load (e.g. a transient iCloud hiccup).
-  img.onerror = () => { if (photos.length > 1) { photoIdx++; img.src = photos[photoIdx % photos.length]; } };
-  img.style.opacity = 0;
-  setTimeout(() => { img.src = photos[photoIdx % photos.length]; photoIdx++; img.style.opacity = 1; }, 400);
+  photoIdx = i % photos.length;
+  const src = photos[photoIdx];
+  const swap = () => { img.src = src; img.style.opacity = 1; };
+  if (img.getAttribute('src') && img.style.opacity !== '0') {
+    img.style.opacity = 0;
+    setTimeout(swap, 350); // fade out, then swap in the (already cached) image
+  } else {
+    swap();
+  }
+  // Skip an image that fails to load (e.g. a transient iCloud hiccup).
+  img.onerror = () => { clearTimeout(ssTimer); ssTimer = setTimeout(() => showPhoto(i + 1), 300); };
   updateScreensaverInfo();
+
+  if (photos.length > 1) {
+    new Image().src = photos[(i + 1) % photos.length]; // warm the cache for the next one
+    clearTimeout(ssTimer);
+    ssTimer = setTimeout(() => showPhoto(i + 1), photoMs());
+  }
 }
 // The next few time-of-day forecast slots (today, rolling into tomorrow).
 function upcomingParts(max) {
@@ -458,7 +472,7 @@ function updateScreensaverInfo() {
 }
 function stopScreensaver() {
   $('#screensaver').classList.add('hidden');
-  clearInterval(ssTimer);
+  clearTimeout(ssTimer);
 }
 
 // ---- Presence (mmWave radar) ------------------------------------------------
