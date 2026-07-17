@@ -12,10 +12,10 @@ let weekOffset = 0; // weeks away from the current week
 // ---- Clock + auto day/night theme ------------------------------------------
 function tickClock() {
   const now = new Date();
-  $('#time').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  $('#time').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   $('#date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
   const ss = $('#ssClock');
-  if (ss) ss.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (ss) ss.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   updateTheme();
   updateDimmer();
 }
@@ -203,7 +203,7 @@ function renderAgenda() {
     const wx = weatherByDate[wxKey(d)];
     const rows = evs.map((e) => {
       const time = evIsAllDay(e) ? 'All day'
-        : evStart(e).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        : evStart(e).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
       return `<div class="event" data-id="${e.id}" style="--evc:${evColor(e)}">
         <span class="dot"></span>
         <span class="time">${time}</span>
@@ -239,7 +239,7 @@ function renderWeek() {
       .sort((a, b) => evStart(a) - evStart(b));
     const items = dayEvents.map((e) => {
       const t = evIsAllDay(e) ? 'All day'
-        : evStart(e).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        : evStart(e).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
       return `<div class="wk-ev" data-id="${e.id}" style="--evc:${evColor(e)}">
         <span class="t">${t}</span>${escapeHtml(e.summary || '')}</div>`;
     }).join('');
@@ -279,7 +279,7 @@ function renderMonth() {
     const isToday = today.getFullYear() === y && today.getMonth() === m && today.getDate() === day;
     const shown = dayEvents.slice(0, 3);
     const pills = shown.map((e) => {
-      const t = evIsAllDay(e) ? '' : `<span class="pt">${evStart(e).toLocaleTimeString([], { hour: 'numeric' }).replace(' ', '')}</span> `;
+      const t = evIsAllDay(e) ? '' : `<span class="pt">${evStart(e).toLocaleTimeString([], { hour: 'numeric', hour12: true }).replace(' ', '')}</span> `;
       return `<div class="pill" data-id="${e.id}" style="--evc:${evColor(e)}">${t}${escapeHtml(e.summary || '')}</div>`;
     }).join('');
     const more = dayEvents.length > 3 ? `<div class="more">+${dayEvents.length - 3} more</div>` : '';
@@ -457,7 +457,7 @@ function updateScreensaverInfo() {
   });
   if (upcoming) {
     const when = evIsAllDay(upcoming) ? evStart(upcoming).toLocaleDateString([], { weekday: 'short' })
-      : evStart(upcoming).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      : evStart(upcoming).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     $('#ssNext').textContent = `Next · ${upcoming.summary} · ${when}`;
   } else {
     $('#ssNext').textContent = '';
@@ -770,7 +770,7 @@ function renderWeatherScreen() {
   }
   const w = weatherFull;
   const today = w.daily[0];
-  const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+  const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
   const sunLine = (d) => (d.sunrise || d.sunset) ? `🌅 ${fmtTime(d.sunrise)}   🌇 ${fmtTime(d.sunset)}` : '';
   const aqiChip = w.aqi
     ? `<div class="ws-aqi"><span class="aqi-dot" style="background:${w.aqi.color}"></span>AQI ${w.aqi.value} · ${w.aqi.category}</div>`
