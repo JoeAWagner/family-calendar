@@ -21,6 +21,9 @@ const PORT = process.env.PORT || 3000;
 const CALENDAR_ID = process.env.CALENDAR_ID || 'primary';
 const IDLE_MINUTES = Number(process.env.IDLE_MINUTES || 3);
 const PHOTO_SECONDS = Number(process.env.PHOTO_SECONDS || 8);
+// If set, the ✅ To-Do tab is backed by this Reminders list (synced via the
+// bridge) instead of the Pi-stored todo.json.
+const TODO_LIST = (process.env.TODO_LIST || '').trim();
 const TOKEN_PATH = path.join(__dirname, 'token.json');
 const PHOTOS_DIR = path.join(__dirname, 'photos');
 // Demo mode: run the whole UI with fake events + photos, no Google login needed.
@@ -112,7 +115,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/config', (req, res) => {
-  res.json({ authed: DEMO || isAuthed(), demo: DEMO, idleMinutes: IDLE_MINUTES, photoSeconds: PHOTO_SECONDS });
+  res.json({
+    authed: DEMO || isAuthed(), demo: DEMO,
+    idleMinutes: IDLE_MINUTES, photoSeconds: PHOTO_SECONDS,
+    todoList: TODO_LIST,   // '' => To-Do tab uses the Pi-stored list
+  });
 });
 
 // Frontend polls this and reloads itself when it changes (post auto-update).
@@ -292,7 +299,9 @@ const BRIDGE_STALE_SEC = Number(process.env.BRIDGE_STALE_MIN || 10) * 60;
 app.get('/api/lists', (req, res) => {
   const b = listBackend();
   if (!b) return res.json({ configured: false, names: [] });
-  const out = { configured: true, mode: LIST_MODE, names: b.listNames() };
+  // The To-Do list gets its own tab, so keep it out of the Lists chips.
+  const names = b.listNames().filter((n) => n.toLowerCase() !== TODO_LIST.toLowerCase());
+  const out = { configured: true, mode: LIST_MODE, names };
   if (LIST_MODE === 'bridge') {
     const { lastPushAgoSec } = bridge.status();
     out.lastPushAgoSec = lastPushAgoSec;

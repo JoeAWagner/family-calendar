@@ -667,8 +667,21 @@ async function checkBridgeHealth() {
 // ---- To-Do (wall-hosted, stored on the Pi) ---------------------------------
 let todoData = { items: [] };
 
+// Backed by a synced Reminders list when TODO_LIST is set, else the Pi-stored one.
+const todoPath = () => (config.todoList
+  ? '/api/list/' + encodeURIComponent(config.todoList)
+  : '/api/todo');
+
 async function renderTodo() {
-  try { todoData = await api('/api/todo'); } catch { todoData = { items: [] }; }
+  try { todoData = await api(todoPath()); } catch { todoData = { items: [] }; }
+  const h = document.querySelector('#todoHeader h2');
+  if (h) h.textContent = config.todoList || 'To-Do';
+  const warn = $('#todoWarn');
+  if (warn) { // same stale-bridge warning the Lists tab gets
+    const stale = !!(config.todoList && listsInfo.mode === 'bridge' && listsInfo.stale);
+    warn.textContent = stale ? '⚠️ May be out of date — check the iPad\'s Sync Loop.' : '';
+    warn.classList.toggle('hidden', !stale);
+  }
   paintTodo();
 }
 function paintTodo() {
@@ -695,20 +708,20 @@ async function toggleTodo(uid) {
   const item = (todoData.items || []).find((i) => i.uid === uid);
   if (!item) return;
   item.done = !item.done; paintTodo();
-  await fetch('/api/todo/' + uid, {
+  await fetch(todoPath() + '/' + uid, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: item.done }),
   }).catch(() => {});
 }
 async function deleteTodo(uid) {
   todoData.items = (todoData.items || []).filter((i) => i.uid !== uid); paintTodo();
-  await fetch('/api/todo/' + uid, { method: 'DELETE' }).catch(() => {});
+  await fetch(todoPath() + '/' + uid, { method: 'DELETE' }).catch(() => {});
 }
 async function addTodo() {
   const input = $('#newTodo');
   const title = input.value.trim();
   if (!title) return;
   input.value = '';
-  const item = await fetch('/api/todo', {
+  const item = await fetch(todoPath(), {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }),
   }).then((r) => r.json()).catch(() => null);
   if (item && item.uid) (todoData.items ||= []).push(item);
