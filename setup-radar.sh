@@ -55,7 +55,9 @@ Wants=familycal.service
 Type=simple
 User=$TARGET_USER
 WorkingDirectory=$APP_DIR
-Environment=RADAR_PORT=$RADAR_PORT
+# Leave blank to auto-detect (survives swapping/replugging the USB adapter).
+# Set a specific path here only if you have more than one serial device.
+Environment=RADAR_PORT=
 Environment=APP_URL=http://localhost:3000
 # Zone tuning (mm / seconds)
 Environment=RADAR_NEAR_MM=610

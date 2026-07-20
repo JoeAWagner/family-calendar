@@ -17,11 +17,12 @@ import math
 import os
 import subprocess
 import time
+import glob
 import urllib.request
 
 import serial
 
-PORT = os.environ.get('RADAR_PORT', '/dev/serial0')
+PORT = os.environ.get('RADAR_PORT', '')  # blank => auto-detect
 BAUD = int(os.environ.get('RADAR_BAUD', '256000'))
 APP = os.environ.get('APP_URL', 'http://localhost:3000')
 
@@ -184,9 +185,43 @@ def display_power(on):
     return False
 
 
+def find_port():
+    """Pick a serial port. Honour RADAR_PORT if it exists, else auto-detect —
+    so swapping/replugging a USB-TTL adapter doesn't break the service."""
+    if PORT and os.path.exists(PORT):
+        return PORT
+    if PORT:
+        print(f'WARN: {PORT} not present — auto-detecting…', flush=True)
+    # by-id paths are stable per adapter; prefer them, then plain nodes.
+    for pattern in ('/dev/serial/by-id/*', '/dev/ttyUSB*', '/dev/ttyACM*', '/dev/serial0'):
+        for p in sorted(glob.glob(pattern)):
+            if os.path.exists(p):
+                return p
+    return None
+
+
+def open_serial():
+    """Block until a port is available and opens (survives unplug/replug)."""
+    warned = False
+    while True:
+        p = find_port()
+        if p:
+            try:
+                ser = serial.Serial(p, BAUD, timeout=1)
+                print(f'LD2450 on {p} @ {BAUD}; near={NEAR_MM}mm dwell={ENGAGE_DWELL_S}s',
+                      flush=True)
+                return ser
+            except Exception as e:
+                print(f'WARN: could not open {p}: {e}', flush=True)
+        elif not warned:
+            print('WARN: no serial port found (checked /dev/serial/by-id, ttyUSB*, '
+                  'ttyACM*, serial0). Is the USB-TTL adapter plugged in?', flush=True)
+            warned = True
+        time.sleep(3)
+
+
 def main():
-    ser = serial.Serial(PORT, BAUD, timeout=1)
-    print(f'LD2450 on {PORT} @ {BAUD}; near={NEAR_MM}mm dwell={ENGAGE_DWELL_S}s', flush=True)
+    ser = open_serial()
 
     buf = bytearray()
     presence = Presence()
@@ -200,7 +235,15 @@ def main():
     warned_noframe = False
 
     while True:
-        chunk = ser.read(64)
+        try:
+            chunk = ser.read(64)
+        except Exception as e:  # adapter unplugged / port vanished — reopen
+            print(f'WARN: serial read failed ({e}); reopening…', flush=True)
+            try: ser.close()
+            except Exception: pass
+            ser = open_serial()
+            buf.clear()
+            continue
         now = time.time()
         if chunk:
             buf.extend(chunk)
@@ -227,8 +270,8 @@ def main():
             warned_noframe = False
         else:
             if (now - last_data) > 5 and not warned_nodata:
-                print(f'WARN: no bytes on {PORT} for 5s. Check: LD2450 TX -> Pi pin 10 '
-                      f'(GPIO15/RXD), 5V power, UART enabled + serial console disabled.',
+                print(f'WARN: no bytes on {ser.port} for 5s. Check wiring: radar TX -> '
+                      f'adapter RX (must cross over), radar RX -> adapter TX, and 5V power.',
                       flush=True)
                 warned_nodata = True
             if bytes_seen and (now - last_frame) > 5 and not warned_noframe:
