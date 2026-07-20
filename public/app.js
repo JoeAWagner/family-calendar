@@ -118,9 +118,21 @@ async function saveSettings() {
   btn.textContent = 'Saved ✓';
   setTimeout(() => { btn.textContent = 'Save'; }, 1500);
 }
+async function reconnectRadar() {
+  const btn = $('#radarReconnect');
+  btn.disabled = true; btn.textContent = 'Reconnecting…';
+  const r = await fetch('/api/radar/reconnect', { method: 'POST' }).then((x) => x.json()).catch(() => ({ ok: false, error: 'no response' }));
+  if (!r.ok) {
+    $('#radarLive').textContent = 'Reconnect failed: ' + (r.error || 'unknown') +
+      ' — run: sudo systemctl restart familycal-radar';
+  }
+  // The service takes a few seconds to reopen the port; the 1s status poll shows the result.
+  setTimeout(() => { btn.disabled = false; btn.textContent = 'Reconnect sensor'; }, 6000);
+}
 $('#settingsBtn')?.addEventListener('click', openSettings);
 $('#setClose')?.addEventListener('click', closeSettings);
 $('#setSave')?.addEventListener('click', saveSettings);
+$('#radarReconnect')?.addEventListener('click', reconnectRadar);
 ['#setNear', '#setDwell', '#setEmpty'].forEach((s) => $(s)?.addEventListener('input', syncSettingLabels));
 
 // ---- View switching --------------------------------------------------------

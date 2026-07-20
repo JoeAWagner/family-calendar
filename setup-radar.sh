@@ -54,6 +54,7 @@ Wants=familycal.service
 [Service]
 Type=simple
 User=$TARGET_USER
+SupplementaryGroups=dialout
 WorkingDirectory=$APP_DIR
 # Leave blank to auto-detect (survives swapping/replugging the USB adapter).
 # Set a specific path here only if you have more than one serial device.
@@ -75,8 +76,14 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+# Let the app restart this service (for the Settings "Reconnect sensor" button).
+echo "$TARGET_USER ALL=(root) NOPASSWD: /bin/systemctl restart familycal-radar, /usr/bin/systemctl restart familycal-radar" \
+  | sudo tee /etc/sudoers.d/familycal-radar >/dev/null
+sudo chmod 440 /etc/sudoers.d/familycal-radar
+
 sudo systemctl daemon-reload
 sudo systemctl enable familycal-radar.service
+sudo systemctl restart familycal-radar.service
 
 echo ""
 echo "== Done =="

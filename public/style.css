@@ -49,6 +49,7 @@ header {
 .rangeRow { display: flex; align-items: center; gap: 14px; }
 .rangeRow input[type=range] { flex: 1; height: 40px; accent-color: var(--accent); }
 .rangeVal { min-width: 72px; text-align: right; font-weight: 800; font-size: 20px; }
+.radar-reconnect { align-self: flex-start; font-size: 17px; padding: 10px 18px; }
 #time { font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 #date { font-size: 17px; color: var(--muted); margin-top: 4px; font-weight: 600; }
 

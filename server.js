@@ -7,7 +7,7 @@ import * as album from './icloudalbum.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execSync, exec } from 'node:child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -456,6 +456,17 @@ let radarCfg = {
 try {
   if (fs.existsSync(RADAR_CFG_PATH)) radarCfg = { ...radarCfg, ...JSON.parse(fs.readFileSync(RADAR_CFG_PATH, 'utf8')) };
 } catch {}
+
+// Restart the radar service (re-runs its port autodetect). Needs a sudoers rule
+// (installed by setup-radar.sh) so the app can restart it without a password.
+app.post('/api/radar/reconnect', (req, res) => {
+  const asRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+  const cmd = (asRoot ? '' : 'sudo -n ') + 'systemctl restart familycal-radar';
+  exec(cmd, { timeout: 10000 }, (err, _out, stderr) => {
+    if (err) return res.status(500).json({ ok: false, error: (stderr || err.message).trim() });
+    res.json({ ok: true });
+  });
+});
 
 app.get('/api/radar/config', (req, res) => res.json(radarCfg));
 app.post('/api/radar/config', (req, res) => {
