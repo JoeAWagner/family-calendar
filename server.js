@@ -445,6 +445,34 @@ app.get('/api/presence', (req, res) => {
   });
 });
 
+// Radar zone config — set from the wall's Settings, read live by radar.py.
+const RADAR_CFG_PATH = path.join(__dirname, 'radar-config.json');
+let radarCfg = {
+  nearMm: Number(process.env.RADAR_NEAR_MM || 610),
+  nearExitMm: Number(process.env.RADAR_NEAR_EXIT_MM || 760),
+  dwellS: Number(process.env.RADAR_ENGAGE_DWELL_S || 2),
+  emptyAfterS: Number(process.env.RADAR_EMPTY_AFTER_S || 45),
+};
+try {
+  if (fs.existsSync(RADAR_CFG_PATH)) radarCfg = { ...radarCfg, ...JSON.parse(fs.readFileSync(RADAR_CFG_PATH, 'utf8')) };
+} catch {}
+
+app.get('/api/radar/config', (req, res) => res.json(radarCfg));
+app.post('/api/radar/config', (req, res) => {
+  const b = req.body || {};
+  const clamp = (v, lo, hi, d) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+  radarCfg = {
+    nearMm: clamp(b.nearMm, 150, 6000, radarCfg.nearMm),
+    nearExitMm: clamp(b.nearExitMm, 150, 6500, radarCfg.nearExitMm),
+    dwellS: clamp(b.dwellS, 0, 10, radarCfg.dwellS),
+    emptyAfterS: clamp(b.emptyAfterS, 5, 600, radarCfg.emptyAfterS),
+  };
+  if (radarCfg.nearExitMm < radarCfg.nearMm) radarCfg.nearExitMm = radarCfg.nearMm + 150; // exit >= near
+  try { fs.writeFileSync(RADAR_CFG_PATH, JSON.stringify(radarCfg, null, 2)); }
+  catch (e) { console.warn('radar cfg save:', e.message); }
+  res.json(radarCfg);
+});
+
 // ---- Trash / recycling reminder --------------------------------------------
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const dayIndex = (n) => DAY_NAMES.indexOf(String(n || '').trim().toLowerCase());

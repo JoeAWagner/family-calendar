@@ -30,7 +30,8 @@ NEAR_MM = int(os.environ.get('RADAR_NEAR_MM', '610'))            # 2 ft
 NEAR_EXIT_MM = int(os.environ.get('RADAR_NEAR_EXIT_MM', '760'))  # hysteresis (2.5 ft)
 ENGAGE_DWELL_S = float(os.environ.get('RADAR_ENGAGE_DWELL_S', '2.0'))
 EMPTY_AFTER_S = float(os.environ.get('RADAR_EMPTY_AFTER_S', '45'))
-HEARTBEAT_S = 5.0
+HEARTBEAT_S = 1.0    # post presence (incl. live distance) at least this often
+CONFIG_EVERY_S = 3.0  # re-read zone settings from the wall's Settings screen
 
 HEADER = b'\xaa\xff\x03\x00'
 TAIL = b'\x55\xcc'
@@ -98,6 +99,15 @@ class Presence:
         changed = new != self.state
         self.state = new
         return new, changed, nearest
+
+
+def fetch_config():
+    """Pull the live zone settings the wall's Settings screen writes."""
+    try:
+        with urllib.request.urlopen(APP + '/api/radar/config', timeout=3) as r:
+            return json.loads(r.read())
+    except Exception:
+        return None
 
 
 def post_state(state, dist):
@@ -233,6 +243,7 @@ def main():
     last_frame = time.time()
     warned_nodata = False
     warned_noframe = False
+    last_cfg = 0.0
 
     while True:
         try:
@@ -245,6 +256,16 @@ def main():
             buf.clear()
             continue
         now = time.time()
+
+        # Live-tunable zones from the wall's Settings screen.
+        if now - last_cfg > CONFIG_EVERY_S:
+            last_cfg = now
+            cfg = fetch_config()
+            if cfg:
+                presence.near_mm = cfg.get('nearMm', presence.near_mm)
+                presence.near_exit_mm = cfg.get('nearExitMm', presence.near_exit_mm)
+                presence.dwell_s = cfg.get('dwellS', presence.dwell_s)
+                presence.empty_after_s = cfg.get('emptyAfterS', presence.empty_after_s)
         if chunk:
             buf.extend(chunk)
             bytes_seen += len(chunk)

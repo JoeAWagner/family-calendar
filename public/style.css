@@ -34,10 +34,21 @@ header {
   box-shadow: 0 2px 12px rgba(60,50,30,.06); z-index: 2;
   transition: background .8s ease;
 }
-#themeToggle, #sleepBtn {
+#themeToggle, #sleepBtn, #settingsBtn {
   font-size: 26px; padding: 0; width: 56px; min-width: 56px; border-radius: 50%;
   background: var(--bg-2); box-shadow: var(--shadow);
 }
+
+/* Settings modal */
+.set-h { margin: 6px 0 0; font-size: 20px; color: var(--muted); font-weight: 800; }
+.radar-status { font-size: 22px; font-weight: 800; }
+.radar-status.on { color: #35c28b; }
+.radar-status.off { color: var(--danger); }
+.radar-live { font-size: 18px; color: var(--muted); font-weight: 600; margin-top: -6px; }
+.radar-live b { color: var(--ink); }
+.rangeRow { display: flex; align-items: center; gap: 14px; }
+.rangeRow input[type=range] { flex: 1; height: 40px; accent-color: var(--accent); }
+.rangeVal { min-width: 72px; text-align: right; font-weight: 800; font-size: 20px; }
 #time { font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 #date { font-size: 17px; color: var(--muted); margin-top: 4px; font-weight: 600; }
 
@@ -382,7 +393,7 @@ body.night header { background: #1a1d24; box-shadow: 0 2px 12px rgba(0, 0, 0, .4
 body.night #weather { background: linear-gradient(135deg, #2a2431, #1e2a34); }
 body.night button,
 body.night .list-chip { background: #2a2e39; }
-body.night #themeToggle, body.night #sleepBtn { background: #2a2e39; }
+body.night #themeToggle, body.night #sleepBtn, body.night #settingsBtn { background: #2a2e39; }
 body.night .cell.empty-cell { background: transparent; }
 body.night button.active { background: var(--accent); color: #fff; }
 body.night #addBtn { background: var(--accent-2); color: #fff; }

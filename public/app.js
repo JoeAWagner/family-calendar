@@ -59,6 +59,70 @@ $('#themeToggle')?.addEventListener('click', cycleTheme);
 setInterval(tickClock, 1000);
 tickClock();
 
+// ---- Settings (radar zones + live connection) ------------------------------
+const MM_PER_FT = 305;
+const ft = (mm) => (mm / MM_PER_FT).toFixed(1);
+let settingsTimer = null;
+
+async function openSettings() {
+  const cfg = await api('/api/radar/config').catch(() => null);
+  if (cfg) {
+    $('#setNear').value = (cfg.nearMm / MM_PER_FT).toFixed(1);
+    $('#setDwell').value = cfg.dwellS;
+    $('#setEmpty').value = Math.round(cfg.emptyAfterS);
+    syncSettingLabels();
+  }
+  $('#settingsModal').classList.remove('hidden');
+  pollRadarStatus();
+  settingsTimer = setInterval(pollRadarStatus, 1000); // live distance readout
+}
+function closeSettings() {
+  $('#settingsModal').classList.add('hidden');
+  clearInterval(settingsTimer);
+}
+function syncSettingLabels() {
+  $('#setNearVal').textContent = `${(+$('#setNear').value).toFixed(1)} ft`;
+  $('#setDwellVal').textContent = `${(+$('#setDwell').value).toFixed(1)} s`;
+  $('#setEmptyVal').textContent = `${$('#setEmpty').value} s`;
+}
+async function pollRadarStatus() {
+  let p;
+  try { p = await api('/api/presence'); } catch { return; }
+  const st = $('#radarStatus'), live = $('#radarLive');
+  if (!p.active) {
+    st.textContent = '🔴 Sensor not detected';
+    st.className = 'radar-status off';
+    live.textContent = 'No data from the radar service. Check the sensor and its USB adapter.';
+    return;
+  }
+  st.textContent = '🟢 Sensor connected';
+  st.className = 'radar-status on';
+  if (p.distanceMm != null) {
+    live.innerHTML = `📍 Detecting someone at <b>${ft(p.distanceMm)} ft</b> (${Math.round(p.distanceMm)} mm) — state: <b>${p.state}</b>`;
+  } else {
+    live.innerHTML = `👻 No one detected right now — state: <b>${p.state}</b>. Walk in front of the sensor to see the distance.`;
+  }
+}
+async function saveSettings() {
+  const nearMm = Math.round((+$('#setNear').value) * MM_PER_FT);
+  const body = {
+    nearMm,
+    nearExitMm: nearMm + 150,        // keep-awake margin (auto)
+    dwellS: +$('#setDwell').value,
+    emptyAfterS: +$('#setEmpty').value,
+  };
+  await fetch('/api/radar/config', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }).catch(() => {});
+  const btn = $('#setSave');
+  btn.textContent = 'Saved ✓';
+  setTimeout(() => { btn.textContent = 'Save'; }, 1500);
+}
+$('#settingsBtn')?.addEventListener('click', openSettings);
+$('#setClose')?.addEventListener('click', closeSettings);
+$('#setSave')?.addEventListener('click', saveSettings);
+['#setNear', '#setDwell', '#setEmpty'].forEach((s) => $(s)?.addEventListener('input', syncSettingLabels));
+
 // ---- View switching --------------------------------------------------------
 $$('nav button[data-view]').forEach((b) =>
   b.addEventListener('click', () => switchView(b.dataset.view))
