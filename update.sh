@@ -41,3 +41,7 @@ if ! git diff --quiet "$before" "$after" -- package-lock.json package.json; then
 fi
 $SUDO systemctl restart familycal
 echo "Restarted familycal. The kiosk browser will reload itself shortly."
+# Also restart the radar service if it's installed, so radar.py changes take effect.
+if systemctl list-unit-files familycal-radar.service >/dev/null 2>&1; then
+  $SUDO systemctl restart familycal-radar && echo "Restarted familycal-radar."
+fi
