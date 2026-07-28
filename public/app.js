@@ -465,7 +465,16 @@ $('#clearDoodle').addEventListener('click', () => ctx.clearRect(0, 0, canvas.wid
 // ---- Photo screensaver -----------------------------------------------------
 let idleTimer = null, ssTimer = null, photos = [], photoIdx = 0;
 
-async function loadPhotos() { try { photos = await api('/api/photos'); } catch { photos = []; } }
+function shufflePhotos() { // Fisher–Yates, in place
+  for (let k = photos.length - 1; k > 0; k--) {
+    const j = Math.floor(Math.random() * (k + 1));
+    [photos[k], photos[j]] = [photos[j], photos[k]];
+  }
+}
+async function loadPhotos() {
+  try { photos = await api('/api/photos'); } catch { photos = []; }
+  shufflePhotos();
+}
 
 function resetIdle() {
   lastTouchAt = Date.now();
@@ -489,6 +498,12 @@ function startScreensaver() {
 // the *next* image during the current one's window so the swap is instant.
 function showPhoto(i) {
   const img = $('#ssImg');
+  // Completed a full pass — reshuffle for a fresh order (avoid repeating the seam).
+  if (photos.length > 2 && i > 0 && i % photos.length === 0) {
+    const lastSrc = img.getAttribute('src');
+    shufflePhotos();
+    if (photos[0] === lastSrc) [photos[0], photos[1]] = [photos[1], photos[0]];
+  }
   photoIdx = i % photos.length;
   const src = photos[photoIdx];
   const swap = () => { img.src = src; img.style.opacity = 1; };
