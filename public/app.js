@@ -532,8 +532,17 @@ function updateScreensaverInfo() {
     return s >= now;
   });
   if (upcoming) {
-    const when = evIsAllDay(upcoming) ? evStart(upcoming).toLocaleDateString([], { weekday: 'short' })
-      : evStart(upcoming).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    const s = evStart(upcoming);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const day = new Date(s); day.setHours(0, 0, 0, 0);
+    const time = s.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    let when;
+    if (day.getTime() === today.getTime()) {
+      when = evIsAllDay(upcoming) ? 'Today' : time;        // today: just the time
+    } else {
+      const dateStr = s.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      when = evIsAllDay(upcoming) ? dateStr : `${dateStr} · ${time}`; // future: add the date
+    }
     $('#ssNext').textContent = `Next · ${upcoming.summary} · ${when}`;
   } else {
     $('#ssNext').textContent = '';
