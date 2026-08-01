@@ -452,6 +452,7 @@ let radarCfg = {
   nearExitMm: Number(process.env.RADAR_NEAR_EXIT_MM || 760),
   dwellS: Number(process.env.RADAR_ENGAGE_DWELL_S || 2),
   emptyAfterS: Number(process.env.RADAR_EMPTY_AFTER_S || 45),
+  awayGraceS: Number(process.env.RADAR_AWAY_GRACE_S || 0), // keep Agenda up after stepping away
 };
 try {
   if (fs.existsSync(RADAR_CFG_PATH)) radarCfg = { ...radarCfg, ...JSON.parse(fs.readFileSync(RADAR_CFG_PATH, 'utf8')) };
@@ -477,6 +478,7 @@ app.post('/api/radar/config', (req, res) => {
     nearExitMm: clamp(b.nearExitMm, 150, 6500, radarCfg.nearExitMm),
     dwellS: clamp(b.dwellS, 0, 10, radarCfg.dwellS),
     emptyAfterS: clamp(b.emptyAfterS, 5, 600, radarCfg.emptyAfterS),
+    awayGraceS: clamp(b.awayGraceS, 0, 300, radarCfg.awayGraceS),
   };
   if (radarCfg.nearExitMm < radarCfg.nearMm) radarCfg.nearExitMm = radarCfg.nearMm + 150; // exit >= near
   try { fs.writeFileSync(RADAR_CFG_PATH, JSON.stringify(radarCfg, null, 2)); }

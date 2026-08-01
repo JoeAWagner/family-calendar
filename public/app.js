@@ -63,13 +63,20 @@ tickClock();
 const MM_PER_FT = 305;
 const ft = (mm) => (mm / MM_PER_FT).toFixed(1);
 let settingsTimer = null;
+let radarSettings = { awayGraceS: 0 }; // radar/zone config the app reacts to
+
+async function loadRadarSettings() {
+  try { radarSettings = await api('/api/radar/config'); } catch {}
+}
 
 async function openSettings() {
   const cfg = await api('/api/radar/config').catch(() => null);
   if (cfg) {
+    radarSettings = cfg;
     $('#setNear').value = (cfg.nearMm / MM_PER_FT).toFixed(1);
     $('#setDwell').value = cfg.dwellS;
     $('#setEmpty').value = Math.round(cfg.emptyAfterS);
+    $('#setAway').value = Math.round(cfg.awayGraceS || 0);
     syncSettingLabels();
   }
   $('#settingsModal').classList.remove('hidden');
@@ -84,6 +91,7 @@ function syncSettingLabels() {
   $('#setNearVal').textContent = `${(+$('#setNear').value).toFixed(1)} ft`;
   $('#setDwellVal').textContent = `${(+$('#setDwell').value).toFixed(1)} s`;
   $('#setEmptyVal').textContent = `${$('#setEmpty').value} s`;
+  $('#setAwayVal').textContent = +$('#setAway').value === 0 ? 'Off' : `${$('#setAway').value} s`;
 }
 async function pollRadarStatus() {
   let p;
@@ -110,10 +118,12 @@ async function saveSettings() {
     nearExitMm: nearMm + 150,        // keep-awake margin (auto)
     dwellS: +$('#setDwell').value,
     emptyAfterS: +$('#setEmpty').value,
+    awayGraceS: +$('#setAway').value,
   };
-  await fetch('/api/radar/config', {
+  const updated = await fetch('/api/radar/config', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  }).catch(() => {});
+  }).then((r) => r.json()).catch(() => null);
+  if (updated) radarSettings = updated; // apply the grace immediately
   const btn = $('#setSave');
   btn.textContent = 'Saved ✓';
   setTimeout(() => { btn.textContent = 'Save'; }, 1500);
@@ -133,7 +143,7 @@ $('#settingsBtn')?.addEventListener('click', openSettings);
 $('#setClose')?.addEventListener('click', closeSettings);
 $('#setSave')?.addEventListener('click', saveSettings);
 $('#radarReconnect')?.addEventListener('click', reconnectRadar);
-['#setNear', '#setDwell', '#setEmpty'].forEach((s) => $(s)?.addEventListener('input', syncSettingLabels));
+['#setNear', '#setDwell', '#setEmpty', '#setAway'].forEach((s) => $(s)?.addEventListener('input', syncSettingLabels));
 
 // ---- View switching --------------------------------------------------------
 $$('nav button[data-view]').forEach((b) =>
@@ -600,8 +610,10 @@ async function pollPresence() {
   if (presenceState !== prev) applyPresence(prev, presenceState);
 }
 
+let awayTimer = null;
 function applyPresence(prev, state) {
   const recentTouch = Date.now() - lastTouchAt < TOUCH_GRACE_MS;
+  clearTimeout(awayTimer); // any state change cancels a pending "step-away" hold
   if (state === 'engaged') {
     setDimOverride(null);
     stopScreensaver();
@@ -609,7 +621,12 @@ function applyPresence(prev, state) {
     if (!recentTouch && prev !== 'engaged') switchView('agenda');
   } else if (state === 'present') {
     setDimOverride(null);
-    if (!recentTouch) startScreensaver();
+    if (!recentTouch) {
+      const graceMs = (radarSettings.awayGraceS || 0) * 1000;
+      // Stepping back from the wall keeps the Agenda up for the grace period.
+      if (prev === 'engaged' && graceMs > 0) awayTimer = setTimeout(startScreensaver, graceMs);
+      else startScreensaver();
+    }
   } else if (state === 'empty') {
     if (!recentTouch) { startScreensaver(); setDimOverride(1); }
   }
@@ -1057,6 +1074,8 @@ async function boot() {
   setInterval(checkVersion, 3 * 60 * 1000); // reload after an auto-update
   setInterval(loadBins, 20 * 60 * 1000);    // bin reminder appears/clears with the clock
   setInterval(checkBridgeHealth, 5 * 60 * 1000);
+  loadRadarSettings();
+  setInterval(loadRadarSettings, 5 * 60 * 1000); // pick up zone changes from other tabs
   pollPresence();
   setInterval(pollPresence, 1000);          // snappy wake when someone walks up
 }
