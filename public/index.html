@@ -167,6 +167,24 @@
           <div class="rangeRow"><input id="setEmpty" type="range" min="10" max="180" step="5"><span id="setEmptyVal" class="rangeVal"></span></div>
         </label>
 
+        <h3 class="set-h">Display</h3>
+        <label>Screensaver brightness (when idle in the room)
+          <div class="rangeRow"><input id="setDim" type="range" min="10" max="100" step="5"><span id="setDimVal" class="rangeVal"></span></div>
+        </label>
+        <label>Screensaver after (no motion sensor)
+          <div class="rangeRow"><input id="setIdle" type="range" min="1" max="30" step="1"><span id="setIdleVal" class="rangeVal"></span></div>
+        </label>
+        <label>Photo interval
+          <div class="rangeRow"><input id="setPhoto" type="range" min="4" max="60" step="1"><span id="setPhotoVal" class="rangeVal"></span></div>
+        </label>
+
+        <h3 class="set-h">Location (for weather)</h3>
+        <div class="locRow">
+          <label class="locField">Latitude <input id="setLat" type="text" inputmode="none" placeholder="40.7128"></label>
+          <label class="locField">Longitude <input id="setLon" type="text" inputmode="none" placeholder="-74.0060"></label>
+        </div>
+        <div class="loc-hint">Find yours at latlong.net</div>
+
         <div class="modalButtons">
           <button id="setClose" class="ghost">Close</button>
           <button id="setSave" class="btn">Save</button>
@@ -183,6 +201,7 @@
           <span id="ssNext"></span>
         </div>
         <div id="ssBin"></div>
+        <div id="ssSun"></div>
         <div id="ssForecast"></div>
         <div id="ssCurve"></div>
       </div>

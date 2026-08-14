@@ -8,6 +8,7 @@ let config = { authed: false, idleMinutes: 3 };
 let events = [];
 let monthCursor = new Date();
 let weekOffset = 0; // weeks away from the current week
+let weatherFull = null; // last full /api/weather response (declared early: the clock reads it)
 
 // ---- Clock + auto day/night theme ------------------------------------------
 function tickClock() {
@@ -32,18 +33,29 @@ function computeDim() {
   if (h >= 6 && h < 7) return MAX_DIM * (7 - h);        // dawn ramp up
   return MAX_DIM;                              // 23:00–06:00: dimmest
 }
-// Presence can force the dimmer (e.g. full black when the room is empty).
+// Presence sets a dim *floor* (never brighter than the time schedule):
+//   engaged  -> 0    (at the wall: full time-based brightness)
+//   present  -> presentDim (idling in the room: dimmer)
+//   empty    -> 1    (black; radar also cuts the backlight)
 let dimOverride = null;
 function setDimOverride(v) { dimOverride = v; updateDimmer(); }
 function updateDimmer() {
   const el = $('#dimmer');
   if (!el) return;
-  const v = dimOverride != null ? dimOverride : computeDim();
+  const base = computeDim();
+  const v = dimOverride != null ? Math.max(base, dimOverride) : base;
   el.style.opacity = v.toFixed(3);
 }
 // Theme: auto (dark in evening), or manually forced light/dark via the toggle.
 let themeMode = localStorage.getItem('themeMode') || 'auto'; // auto | light | dark
-const isNightNow = () => { const h = new Date().getHours(); return h >= 20 || h < 7; };
+// Night = before today's sunrise or after today's sunset (from the weather feed);
+// falls back to fixed hours until the forecast loads.
+const isNightNow = () => {
+  const sr = weatherFull && weatherFull.sunrise && new Date(weatherFull.sunrise);
+  const ss = weatherFull && weatherFull.sunset && new Date(weatherFull.sunset);
+  if (sr && ss && !isNaN(sr) && !isNaN(ss)) { const now = new Date(); return now < sr || now >= ss; }
+  const h = new Date().getHours(); return h >= 20 || h < 7;
+};
 function updateTheme() {
   const night = themeMode === 'dark' || (themeMode === 'auto' && isNightNow());
   document.body.classList.toggle('night', night);
@@ -70,15 +82,25 @@ async function loadRadarSettings() {
 }
 
 async function openSettings() {
-  const cfg = await api('/api/radar/config').catch(() => null);
+  const [cfg, gen] = await Promise.all([
+    api('/api/radar/config').catch(() => null),
+    api('/api/settings').catch(() => null),
+  ]);
   if (cfg) {
     radarSettings = cfg;
     $('#setNear').value = (cfg.nearMm / MM_PER_FT).toFixed(1);
     $('#setDwell').value = cfg.dwellS;
     $('#setEmpty').value = Math.round(cfg.emptyAfterS);
     $('#setAway').value = Math.round(cfg.awayGraceS || 0);
-    syncSettingLabels();
   }
+  if (gen) {
+    $('#setDim').value = Math.round((1 - (gen.presentDim ?? 0.4)) * 100); // brightness %
+    $('#setIdle').value = Math.round(gen.idleMinutes || 3);
+    $('#setPhoto').value = Math.round(gen.photoSeconds || 8);
+    $('#setLat').value = gen.lat || '';
+    $('#setLon').value = gen.lon || '';
+  }
+  syncSettingLabels();
   $('#settingsModal').classList.remove('hidden');
   pollRadarStatus();
   settingsTimer = setInterval(pollRadarStatus, 1000); // live distance readout
@@ -92,6 +114,9 @@ function syncSettingLabels() {
   $('#setDwellVal').textContent = `${(+$('#setDwell').value).toFixed(1)} s`;
   $('#setEmptyVal').textContent = `${$('#setEmpty').value} s`;
   $('#setAwayVal').textContent = +$('#setAway').value === 0 ? 'Off' : `${$('#setAway').value} s`;
+  $('#setDimVal').textContent = `${$('#setDim').value}%`;
+  $('#setIdleVal').textContent = `${$('#setIdle').value} min`;
+  $('#setPhotoVal').textContent = `${$('#setPhoto').value} s`;
 }
 async function pollRadarStatus() {
   let p;
@@ -120,10 +145,18 @@ async function saveSettings() {
     emptyAfterS: +$('#setEmpty').value,
     awayGraceS: +$('#setAway').value,
   };
-  const updated = await fetch('/api/radar/config', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  }).then((r) => r.json()).catch(() => null);
-  if (updated) radarSettings = updated; // apply the grace immediately
+  const genBody = {
+    presentDim: 1 - (+$('#setDim').value) / 100, // brightness % -> dim
+    idleMinutes: +$('#setIdle').value,
+    photoSeconds: +$('#setPhoto').value,
+    lat: $('#setLat').value.trim(),
+    lon: $('#setLon').value.trim(),
+  };
+  const post = (url, b) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then((r) => r.json()).catch(() => null);
+  const [radar, gen] = await Promise.all([post('/api/radar/config', body), post('/api/settings', genBody)]);
+  if (radar) radarSettings = radar;
+  if (gen) { config.idleMinutes = gen.idleMinutes; config.photoSeconds = gen.photoSeconds; config.presentDim = gen.presentDim; }
+  loadWeather(); // pick up a new location right away
   const btn = $('#setSave');
   btn.textContent = 'Saved ✓';
   setTimeout(() => { btn.textContent = 'Save'; }, 1500);
@@ -143,7 +176,8 @@ $('#settingsBtn')?.addEventListener('click', openSettings);
 $('#setClose')?.addEventListener('click', closeSettings);
 $('#setSave')?.addEventListener('click', saveSettings);
 $('#radarReconnect')?.addEventListener('click', reconnectRadar);
-['#setNear', '#setDwell', '#setEmpty', '#setAway'].forEach((s) => $(s)?.addEventListener('input', syncSettingLabels));
+['#setNear', '#setDwell', '#setEmpty', '#setAway', '#setDim', '#setIdle', '#setPhoto']
+  .forEach((s) => $(s)?.addEventListener('input', syncSettingLabels));
 
 // ---- View switching --------------------------------------------------------
 $$('nav button[data-view]').forEach((b) =>
@@ -235,6 +269,9 @@ function wxPartChip(p) {
 }
 
 // Full-width weather panel for the Agenda day headers.
+const wxTime = (iso) => iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+const wxSunLine = (day) => (day && (day.sunrise || day.sunset)) ? `🌅 ${wxTime(day.sunrise)}   🌇 ${wxTime(day.sunset)}` : '';
+
 function wxAgendaPanel(day) {
   if (!day) return '';
   const parts = (day.parts || []).map(wxPartChip).join('');
@@ -243,6 +280,7 @@ function wxAgendaPanel(day) {
       <span class="wx-big">${day.emoji}</span>
       <span class="wx-hilo"><b>${Math.round(day.hi)}°</b><i>${Math.round(day.lo)}°</i></span>
       <div class="wx-spark-wrap">${wxSparkline(day, 360, 46)}</div>
+      <span class="wx-sun">${wxSunLine(day)}</span>
     </div>
     <div class="wx-parts">${parts}</div>
   </div>`;
@@ -260,6 +298,7 @@ function wxWeekPanel(day) {
     <div class="wx-wk-hilo">${day.emoji} <b>${Math.round(day.hi)}°</b> ${Math.round(day.lo)}°</div>
     <div class="wx-wk-spark">${wxSparkline(day, 150, 30)}</div>
     <div class="wx-wk-parts">${rows}</div>
+    <div class="wx-wk-sun">${wxSunLine(day)}</div>
   </div>`;
 }
 
@@ -579,6 +618,7 @@ function updateScreensaverInfo() {
   // Today's temperature curve (rendered large + bright for across-the-room legibility).
   const today = weatherFull?.daily?.[0];
   $('#ssCurve').innerHTML = today ? wxSparkline(today, 800, 96) : '';
+  $('#ssSun').textContent = wxSunLine(today);
 }
 function stopScreensaver() {
   $('#screensaver').classList.add('hidden');
@@ -614,21 +654,22 @@ let awayTimer = null;
 function applyPresence(prev, state) {
   const recentTouch = Date.now() - lastTouchAt < TOUCH_GRACE_MS;
   clearTimeout(awayTimer); // any state change cancels a pending "step-away" hold
+  // A recent touch means someone's actively using the wall — keep it awake and
+  // bright regardless of what the radar reports (except a true wall approach).
+  if (recentTouch && state !== 'engaged') { setDimOverride(0); return; }
+
   if (state === 'engaged') {
-    setDimOverride(null);
+    setDimOverride(0);   // at the wall: full brightness (time schedule still applies)
     stopScreensaver();
-    // Someone walked up and stayed — show them the agenda.
-    if (!recentTouch && prev !== 'engaged') switchView('agenda');
+    if (!recentTouch && prev !== 'engaged') switchView('agenda'); // don't override manual nav
   } else if (state === 'present') {
-    setDimOverride(null);
-    if (!recentTouch) {
-      const graceMs = (radarSettings.awayGraceS || 0) * 1000;
-      // Stepping back from the wall keeps the Agenda up for the grace period.
-      if (prev === 'engaged' && graceMs > 0) awayTimer = setTimeout(startScreensaver, graceMs);
-      else startScreensaver();
-    }
+    setDimOverride(config.presentDim ?? 0.4); // idling in the room: dimmer
+    const graceMs = (radarSettings.awayGraceS || 0) * 1000;
+    // Stepping back from the wall keeps the Agenda up for the grace period.
+    if (prev === 'engaged' && graceMs > 0) awayTimer = setTimeout(startScreensaver, graceMs);
+    else startScreensaver();
   } else if (state === 'empty') {
-    if (!recentTouch) { startScreensaver(); setDimOverride(1); }
+    startScreensaver(); setDimOverride(1);
   }
 }
 ['mousedown', 'touchstart', 'keydown'].forEach((e) =>
@@ -849,7 +890,6 @@ $('#newTodo').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTod
 
 // ---- Weather ---------------------------------------------------------------
 let weatherByDate = {}; // 'YYYY-MM-DD' -> full day object
-let weatherFull = null; // last full /api/weather response
 
 function wxKey(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -961,7 +1001,7 @@ function buildKeyboard() {
     ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
     ['⇧', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '⌫'],
-    ['space', 'done'],
+    ['-', '.', 'space', '@', 'done'],
   ];
   const osk = document.createElement('div');
   osk.id = 'osk';

@@ -21,6 +21,24 @@ const PORT = process.env.PORT || 3000;
 const CALENDAR_ID = process.env.CALENDAR_ID || 'primary';
 const IDLE_MINUTES = Number(process.env.IDLE_MINUTES || 3);
 const PHOTO_SECONDS = Number(process.env.PHOTO_SECONDS || 8);
+
+// ---- General settings (editable from the wall's Settings; override .env) ----
+const SETTINGS_PATH = path.join(__dirname, 'settings.json');
+let settings = {
+  lat: (process.env.WEATHER_LAT || '').trim(),
+  lon: (process.env.WEATHER_LON || '').trim(),
+  tempUnit: (process.env.TEMP_UNIT || 'fahrenheit').toLowerCase(),
+  idleMinutes: IDLE_MINUTES,
+  photoSeconds: PHOTO_SECONDS,
+  presentDim: 0.4, // screensaver dim (0 bright … 0.9 dark) when idling in the room
+};
+try {
+  if (fs.existsSync(SETTINGS_PATH)) settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')) };
+} catch {}
+function saveSettings() {
+  try { fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2)); }
+  catch (e) { console.warn('settings save:', e.message); }
+}
 // If set, the ✅ To-Do tab is backed by this Reminders list (synced via the
 // bridge) instead of the Pi-stored todo.json.
 const TODO_LIST = (process.env.TODO_LIST || '').trim();
@@ -117,13 +135,30 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/config', (req, res) => {
   res.json({
     authed: DEMO || isAuthed(), demo: DEMO,
-    idleMinutes: IDLE_MINUTES, photoSeconds: PHOTO_SECONDS,
+    idleMinutes: settings.idleMinutes, photoSeconds: settings.photoSeconds,
+    presentDim: settings.presentDim,
     todoList: TODO_LIST,   // '' => To-Do tab uses the Pi-stored list
   });
 });
 
 // Frontend polls this and reloads itself when it changes (post auto-update).
 app.get('/api/version', (req, res) => res.json({ version: VERSION }));
+
+// General settings, editable from the wall (persisted to settings.json).
+app.get('/api/settings', (req, res) => res.json(settings));
+app.post('/api/settings', (req, res) => {
+  const b = req.body || {};
+  const num = (v, lo, hi, d) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+  if (b.lat !== undefined) settings.lat = String(b.lat).trim();
+  if (b.lon !== undefined) settings.lon = String(b.lon).trim();
+  if (b.tempUnit !== undefined) settings.tempUnit = b.tempUnit === 'celsius' ? 'celsius' : 'fahrenheit';
+  settings.idleMinutes = num(b.idleMinutes, 1, 120, settings.idleMinutes);
+  settings.photoSeconds = num(b.photoSeconds, 3, 120, settings.photoSeconds);
+  settings.presentDim = num(b.presentDim, 0, 0.9, settings.presentDim);
+  saveSettings();
+  weatherCache = { at: 0, data: null }; // re-fetch weather (location may have changed)
+  res.json(settings);
+});
 
 app.get('/api/auth/login', (req, res) => {
   if (!oauth) return res.status(400).send('No Google credentials configured.');
@@ -532,9 +567,10 @@ app.get('/api/bins', (req, res) => {
 });
 
 // ---- Weather (Open-Meteo, free, no API key) --------------------------------
-const LAT = process.env.WEATHER_LAT;
-const LON = process.env.WEATHER_LON;
-const TEMP_UNIT = (process.env.TEMP_UNIT || 'fahrenheit').toLowerCase();
+// Live location/unit from the general settings (editable from the wall).
+const LAT = () => settings.lat;
+const LON = () => settings.lon;
+const TEMP_UNIT = () => settings.tempUnit;
 let weatherCache = { at: 0, data: null };
 
 // Map WMO weather codes to an emoji + short label.
@@ -573,8 +609,8 @@ function aqiInfo(v) {
 // Air quality (separate Open-Meteo endpoint; also free, no key). Best-effort.
 async function fetchAqi() {
   try {
-    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}` +
-      `&longitude=${LON}&current=us_aqi&timezone=auto`;
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT()}` +
+      `&longitude=${LON()}&current=us_aqi&timezone=auto`;
     const r = await fetch(url);
     const j = await r.json();
     return aqiInfo(j.current?.us_aqi);
@@ -617,18 +653,18 @@ function demoWeather() {
 const pad2 = (n) => String(n).padStart(2, '0');
 
 app.get('/api/weather', async (req, res) => {
-  if (DEMO && (!LAT || !LON)) return res.json(demoWeather());
-  if (!LAT || !LON) return res.json({ unavailable: true });
+  if (DEMO && (!LAT() || !LON())) return res.json(demoWeather());
+  if (!LAT() || !LON()) return res.json({ unavailable: true });
   // Cache for 15 minutes.
   if (Date.now() - weatherCache.at < 15 * 60 * 1000 && weatherCache.data) {
     return res.json(weatherCache.data);
   }
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT()}&longitude=${LON()}` +
       `&current=temperature_2m,apparent_temperature,weather_code` +
       `&hourly=temperature_2m,weather_code,precipitation_probability` +
       `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
-      `&forecast_days=7&temperature_unit=${TEMP_UNIT}&timezone=auto`;
+      `&forecast_days=7&temperature_unit=${TEMP_UNIT()}&timezone=auto`;
     const r = await fetch(url);
     const j = await r.json();
     const [emoji, text] = wmo(j.current.weather_code);
