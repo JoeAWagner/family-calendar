@@ -180,10 +180,22 @@
 
         <h3 class="set-h">Location (for weather)</h3>
         <div class="locRow">
+          <label class="locField zipField">ZIP code <input id="setZip" type="text" inputmode="none" placeholder="90210"></label>
+          <button id="zipLookup" class="btn zipBtn">Look up</button>
+        </div>
+        <div id="zipResult" class="loc-hint"></div>
+        <div class="locRow">
           <label class="locField">Latitude <input id="setLat" type="text" inputmode="none" placeholder="40.7128"></label>
           <label class="locField">Longitude <input id="setLon" type="text" inputmode="none" placeholder="-74.0060"></label>
         </div>
-        <div class="loc-hint">Find yours at latlong.net</div>
+
+        <h3 class="set-h">System</h3>
+        <div id="sysVersion" class="loc-hint"></div>
+        <div class="sysRow">
+          <button id="checkUpdate" class="ghost">Check for updates</button>
+          <button id="rebootBtn" class="danger">Reboot</button>
+        </div>
+        <div id="sysMsg" class="loc-hint"></div>
 
         <div class="modalButtons">
           <button id="setClose" class="ghost">Close</button>

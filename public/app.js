@@ -101,6 +101,9 @@ async function openSettings() {
     $('#setLon').value = gen.lon || '';
   }
   syncSettingLabels();
+  $('#zipResult').textContent = '';
+  $('#sysMsg').textContent = '';
+  api('/api/version').then((v) => { $('#sysVersion').textContent = 'Version ' + (v.version || '').slice(0, 7); }).catch(() => {});
   $('#settingsModal').classList.remove('hidden');
   pollRadarStatus();
   settingsTimer = setInterval(pollRadarStatus, 1000); // live distance readout
@@ -172,10 +175,41 @@ async function reconnectRadar() {
   // The service takes a few seconds to reopen the port; the 1s status poll shows the result.
   setTimeout(() => { btn.disabled = false; btn.textContent = 'Reconnect sensor'; }, 6000);
 }
+async function lookupZip() {
+  const zip = $('#setZip').value.trim();
+  const out = $('#zipResult');
+  out.textContent = 'Looking up…';
+  const r = await fetch('/api/geocode?zip=' + encodeURIComponent(zip)).then((x) => x.json()).catch(() => ({ error: 'no response' }));
+  if (r.error) { out.textContent = '⚠️ ' + r.error; return; }
+  $('#setLat').value = r.lat;
+  $('#setLon').value = r.lon;
+  out.textContent = `📍 ${r.place} (${(+r.lat).toFixed(3)}, ${(+r.lon).toFixed(3)}) — Save to apply`;
+}
+async function checkUpdate() {
+  const btn = $('#checkUpdate'), msg = $('#sysMsg');
+  btn.disabled = true; msg.textContent = 'Checking GitHub…';
+  const r = await fetch('/api/update', { method: 'POST' }).then((x) => x.json()).catch(() => ({ ok: false, error: 'no response' }));
+  msg.textContent = r.ok ? (r.updated ? '⬇️ ' + r.message : '✓ ' + r.message) : '⚠️ ' + (r.error || 'update failed');
+  setTimeout(() => { btn.disabled = false; }, 4000);
+}
+async function rebootPi() {
+  const msg = $('#sysMsg');
+  if ($('#rebootBtn').dataset.armed !== '1') {
+    $('#rebootBtn').dataset.armed = '1';
+    $('#rebootBtn').textContent = 'Tap again to confirm';
+    setTimeout(() => { $('#rebootBtn').dataset.armed = '0'; $('#rebootBtn').textContent = 'Reboot'; }, 4000);
+    return;
+  }
+  msg.textContent = 'Rebooting… the wall will come back in ~30s.';
+  await fetch('/api/reboot', { method: 'POST' }).catch(() => {});
+}
 $('#settingsBtn')?.addEventListener('click', openSettings);
 $('#setClose')?.addEventListener('click', closeSettings);
 $('#setSave')?.addEventListener('click', saveSettings);
 $('#radarReconnect')?.addEventListener('click', reconnectRadar);
+$('#zipLookup')?.addEventListener('click', lookupZip);
+$('#checkUpdate')?.addEventListener('click', checkUpdate);
+$('#rebootBtn')?.addEventListener('click', rebootPi);
 ['#setNear', '#setDwell', '#setEmpty', '#setAway', '#setDim', '#setIdle', '#setPhoto']
   .forEach((s) => $(s)?.addEventListener('input', syncSettingLabels));
 

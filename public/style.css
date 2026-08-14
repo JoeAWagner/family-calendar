@@ -54,6 +54,11 @@ header {
 .locField { flex: 1; }
 .locField input { width: 100%; }
 .loc-hint { font-size: 15px; color: var(--muted); margin-top: -8px; }
+.zipField { flex: 1; }
+.zipBtn { align-self: flex-end; padding: 14px 22px; }
+.locRow { align-items: flex-end; }
+.sysRow { display: flex; gap: 12px; }
+.sysRow button { flex: 1; }
 #time { font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 #date { font-size: 17px; color: var(--muted); margin-top: 4px; font-weight: 600; }
 

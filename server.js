@@ -160,6 +160,48 @@ app.post('/api/settings', (req, res) => {
   res.json(settings);
 });
 
+// ZIP -> lat/lon via zippopotam.us (free, no key). US ZIPs.
+app.get('/api/geocode', async (req, res) => {
+  const zip = String(req.query.zip || '').trim();
+  if (!/^\d{5}$/.test(zip)) return res.status(400).json({ error: 'Enter a 5-digit ZIP code' });
+  try {
+    const r = await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if (!r.ok) return res.status(404).json({ error: 'ZIP not found' });
+    const j = await r.json();
+    const p = (j.places || [])[0];
+    if (!p) return res.status(404).json({ error: 'ZIP not found' });
+    res.json({ lat: p.latitude, lon: p.longitude, place: `${p['place name']}, ${p['state abbreviation']}` });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+// ---- System control (needs sudoers rules from setup-kiosk.sh) --------------
+const SUDO = (typeof process.getuid === 'function' && process.getuid() === 0) ? '' : 'sudo -n ';
+
+// Check GitHub for a new version and apply it (via the separate update service,
+// so the app restart can't kill the update mid-flight).
+app.post('/api/update', (req, res) => {
+  exec('git fetch --quiet origin && echo "$(git rev-parse HEAD) $(git rev-parse @{u})"',
+    { cwd: __dirname, timeout: 30000 }, (err, stdout) => {
+      if (err) return res.status(500).json({ ok: false, error: 'git fetch failed (no network or no remote?)' });
+      const [local, remote] = stdout.trim().split(/\s+/);
+      if (!remote) return res.status(500).json({ ok: false, error: 'no GitHub remote configured' });
+      if (local === remote) return res.json({ ok: true, updated: false, message: 'Already up to date' });
+      exec(SUDO + 'systemctl start familycal-update.service', { timeout: 10000 }, (e2, _o, se2) => {
+        if (e2) return res.status(500).json({ ok: false, error: (se2 || e2.message).trim() });
+        res.json({ ok: true, updated: true, message: 'Update found — the wall will reload shortly' });
+      });
+    });
+});
+
+app.post('/api/reboot', (req, res) => {
+  exec(SUDO + 'systemctl reboot', { timeout: 10000 }, (err, _o, stderr) => {
+    if (err) return res.status(500).json({ ok: false, error: (stderr || err.message).trim() });
+    res.json({ ok: true });
+  });
+});
+
 app.get('/api/auth/login', (req, res) => {
   if (!oauth) return res.status(400).send('No Google credentials configured.');
   const url = oauth.generateAuthUrl({ access_type: 'offline', prompt: 'consent', scope: SCOPES });
