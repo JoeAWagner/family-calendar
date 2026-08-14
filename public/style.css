@@ -276,6 +276,8 @@ body.night .navarrow { background: #2a2e39; }
 .card {
   background: var(--bg-2); border-radius: 26px; padding: 30px; width: min(560px, 92vw);
   display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  max-height: 88vh; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; touch-action: pan-y;
 }
 .card h2 { margin: 0; font-size: 30px; font-weight: 800; }
 .card label { font-size: 20px; font-weight: 700; display: flex; flex-direction: column; gap: 6px; }
@@ -285,7 +287,11 @@ body.night .navarrow { background: #2a2e39; }
 }
 #timeRow { display: flex; gap: 14px; }
 #timeRow label { flex: 1; }
-.modalButtons { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; }
+.modalButtons {
+  display: flex; gap: 12px; justify-content: flex-end;
+  position: sticky; bottom: 0; background: var(--bg-2); /* always reachable while scrolling */
+  padding-top: 14px; box-shadow: 0 -10px 14px -8px rgba(0, 0, 0, .18);
+}
 
 /* On-screen keyboard */
 #osk {
