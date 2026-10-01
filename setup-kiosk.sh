@@ -50,6 +50,9 @@ if [ ! -d "$APP_DIR/node_modules" ]; then
   ( cd "$APP_DIR" && npm install --omit=dev )
 fi
 
+echo "==> Making boot guard executable…"
+chmod +x "$APP_DIR/verify-assets.sh"
+
 echo "==> Writing systemd service $SERVICE…"
 sudo tee "$SERVICE" >/dev/null <<EOF
 [Unit]
@@ -61,6 +64,10 @@ Wants=network-online.target
 Type=simple
 User=$TARGET_USER
 WorkingDirectory=$APP_DIR
+# Boot guard: repair missing/corrupted front-end assets (e.g. from an unclean
+# power-off corrupting Git) before the server starts. The '-' prefix and the
+# script's own exit 0 both ensure a failed repair never blocks boot.
+ExecStartPre=-$APP_DIR/verify-assets.sh
 ExecStart=$NODE_BIN $APP_DIR/server.js
 Restart=always
 RestartSec=3
