@@ -24,13 +24,15 @@
       <button id="sleepBtn" title="Screensaver">💤</button>
       <button id="settingsBtn" title="Settings">⚙️</button>
       <nav>
-        <button data-view="agenda" class="active">Agenda</button>
-        <button data-view="week">Week</button>
-        <button data-view="month">Month</button>
-        <button data-view="list">🛒 Lists</button>
-        <button data-view="todo">✅ To-Do</button>
-        <button data-view="doodle">Doodle</button>
-        <button id="addBtn">+ Add</button>
+        <div class="seg">
+          <button data-view="agenda" class="active">Agenda</button>
+          <button data-view="week">Week</button>
+          <button data-view="month">Month</button>
+          <button data-view="list">🛒 Lists</button>
+          <button data-view="todo">✅ To-Do</button>
+          <button data-view="doodle">Doodle</button>
+        </div>
+        <button id="addBtn">＋ Add</button>
       </nav>
     </header>
 
@@ -204,18 +206,26 @@
       </div>
     </div>
 
-    <!-- Photo screensaver -->
+    <!-- Photo screensaver — photos are the hero; info floats in glass widgets -->
     <div id="screensaver" class="hidden">
       <img id="ssImg" alt="" />
       <div id="ssOverlay">
-        <div id="ssMeta">
-          <span id="ssWeather"></span>
-          <span id="ssNext"></span>
+        <div class="ss-stack">
+          <div class="ss-card ss-wx">
+            <div class="ss-wx-head">
+              <span id="ssWeather" class="ss-wx-now"></span>
+              <div class="ss-wx-meta">
+                <span id="ssCond" class="ss-wx-cond"></span>
+                <span id="ssHilo" class="ss-wx-hilo"></span>
+              </div>
+            </div>
+            <div id="ssCurve" class="ss-wx-curve"></div>
+            <div id="ssForecast" class="ss-wx-fc"></div>
+            <div id="ssSun" class="ss-wx-sun"></div>
+          </div>
+          <div id="ssNext" class="ss-card ss-next"></div>
+          <div id="ssBin" class="ss-card ss-bin"></div>
         </div>
-        <div id="ssBin"></div>
-        <div id="ssSun"></div>
-        <div id="ssForecast"></div>
-        <div id="ssCurve"></div>
       </div>
     </div>
 

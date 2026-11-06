@@ -622,7 +622,16 @@ function upcomingParts(max) {
 
 // Glanceable info shown over the photos: temp, next event, and a mini forecast.
 function updateScreensaverInfo() {
-  if (weatherFull) $('#ssWeather').textContent = `${weatherFull.emoji} ${Math.round(weatherFull.temp)}°`;
+  if (weatherFull) {
+    $('#ssWeather').textContent = `${weatherFull.emoji} ${Math.round(weatherFull.temp)}°`;
+    const condEl = $('#ssCond');
+    if (condEl) condEl.textContent = weatherFull.text || '';
+    const hiloEl = $('#ssHilo');
+    if (hiloEl) {
+      const feels = weatherFull.feels != null ? ` · Feels ${Math.round(weatherFull.feels)}°` : '';
+      hiloEl.textContent = `H ${Math.round(weatherFull.hi)}°  L ${Math.round(weatherFull.lo)}°${feels}`;
+    }
+  }
   const now = new Date();
   const upcoming = (events || []).find((e) => {
     const s = evStart(e);

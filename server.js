@@ -130,6 +130,21 @@ let demoEvents = DEMO ? seedDemoEvents() : [];
 // ---- App -------------------------------------------------------------------
 const app = express();
 app.use(express.json());
+
+// Serve index.html with cache-busted asset links (/style.css?v=<commit>) so the
+// kiosk browser always picks up new CSS/JS after a git auto-update, instead of
+// serving a stale cached copy. Registered before express.static so it wins for '/'.
+app.get(['/', '/index.html'], (req, res) => {
+  try {
+    const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8')
+      .replace('/style.css', `/style.css?v=${VERSION}`)
+      .replace('/app.js', `/app.js?v=${VERSION}`);
+    res.type('html').send(html);
+  } catch {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/config', (req, res) => {
