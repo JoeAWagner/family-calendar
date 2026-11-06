@@ -269,6 +269,79 @@ function evColor(e) {
 // ---- Weather rendering helpers --------------------------------------------
 const PART_SHORT = { morning: 'AM', midday: 'Noon', evening: 'PM', night: 'Night' };
 
+// Condition category from a WMO code (number) or the server's emoji (string).
+function wxCat(x) {
+  if (typeof x === 'number') {
+    if (x === 0) return 'clear';
+    if (x === 1 || x === 2) return 'partly';
+    if (x === 3) return 'cloudy';
+    if ([45, 48].includes(x)) return 'fog';
+    if ([51, 53, 55, 56, 57].includes(x)) return 'drizzle';
+    if ([61, 63, 65, 66, 67, 80, 81, 82].includes(x)) return 'rain';
+    if ([71, 73, 75, 77, 85, 86].includes(x)) return 'snow';
+    if ([95, 96, 99].includes(x)) return 'storm';
+    return 'cloudy';
+  }
+  const k = (x || '').replace(/️/g, '');
+  return { '☀': 'clear', '🌤': 'partly', '⛅': 'partly', '☁': 'cloudy', '🌫': 'fog',
+    '🌦': 'drizzle', '🌧': 'rain', '❄': 'snow', '⛈': 'storm' }[k] || 'cloudy';
+}
+
+// SF-Symbols-style multicolor weather glyphs (scale to the parent's font-size).
+const WX_CLOUD = '<path d="M7.3 18.4h9.1a3.8 3.8 0 0 0 .5-7.56A5.3 5.3 0 0 0 6.5 9.7 3.75 3.75 0 0 0 7.3 18.4Z" fill="#c3ccd9"/>';
+const WX_SUN_RAYS = '<g fill="none" stroke="#ff9f0a" stroke-width="2" stroke-linecap="round">' +
+  '<line x1="12" y1="2" x2="12" y2="4.4"/><line x1="12" y1="19.6" x2="12" y2="22"/>' +
+  '<line x1="2" y1="12" x2="4.4" y2="12"/><line x1="19.6" y1="12" x2="22" y2="12"/>' +
+  '<line x1="4.9" y1="4.9" x2="6.6" y2="6.6"/><line x1="17.4" y1="17.4" x2="19.1" y2="19.1"/>' +
+  '<line x1="19.1" y1="4.9" x2="17.4" y2="6.6"/><line x1="6.6" y1="17.4" x2="4.9" y2="19.1"/></g>';
+const WX_ICONS = {
+  clear: WX_SUN_RAYS + '<circle cx="12" cy="12" r="4.8" fill="#ffb21a"/>',
+  partly: '<g fill="none" stroke="#ff9f0a" stroke-width="1.7" stroke-linecap="round">' +
+    '<line x1="7.5" y1="1.6" x2="7.5" y2="3.2"/><line x1="1.7" y1="7.5" x2="3.3" y2="7.5"/>' +
+    '<line x1="3.4" y1="3.4" x2="4.6" y2="4.6"/><line x1="11.6" y1="3.4" x2="10.4" y2="4.6"/></g>' +
+    '<circle cx="7.5" cy="7.5" r="3.1" fill="#ffb21a"/>' + WX_CLOUD,
+  cloudy: '<path d="M5 15.5h7.5a3.2 3.2 0 0 0 .4-6.36A4.5 4.5 0 0 0 4.3 8 3.2 3.2 0 0 0 5 15.5Z" fill="#dfe5ee"/>' + WX_CLOUD,
+  fog: WX_CLOUD + '<g stroke="#aeb7c2" stroke-width="1.8" stroke-linecap="round">' +
+    '<line x1="6" y1="20.6" x2="15" y2="20.6"/><line x1="8.5" y1="22.4" x2="17" y2="22.4"/></g>',
+  drizzle: WX_CLOUD + '<g stroke="#0a84ff" stroke-width="2" stroke-linecap="round">' +
+    '<line x1="10" y1="19.8" x2="9.2" y2="21.8"/><line x1="14.5" y1="19.8" x2="13.7" y2="21.8"/></g>',
+  rain: WX_CLOUD + '<g stroke="#0a84ff" stroke-width="2" stroke-linecap="round">' +
+    '<line x1="9" y1="19.6" x2="8" y2="22"/><line x1="12.5" y1="19.6" x2="11.5" y2="22"/>' +
+    '<line x1="16" y1="19.6" x2="15" y2="22"/></g>',
+  snow: WX_CLOUD + '<g fill="#8fd3ff"><circle cx="9" cy="20.6" r="1.1"/>' +
+    '<circle cx="12.5" cy="21.6" r="1.1"/><circle cx="16" cy="20.6" r="1.1"/></g>',
+  storm: WX_CLOUD + '<path d="M12.6 18.6l-3.2 4.2h2.4l-1.2 3 4.1-4.5h-2.4l1.5-2.7z" fill="#ffcc00"/>',
+};
+function wxIcon(x, cls = '') {
+  const cat = typeof x === 'string' && WX_ICONS[x] ? x : wxCat(x);
+  return `<svg class="wxi ${cls}" viewBox="0 0 24 24" aria-hidden="true">${WX_ICONS[cat] || WX_ICONS.cloudy}</svg>`;
+}
+
+// Color for a normalized temperature (0 = coldest, 1 = hottest in the window),
+// interpolated across a cool->warm scale for the Apple-style range bars.
+const WX_SCALE = [[48, 176, 199], [52, 199, 89], [255, 214, 10], [255, 159, 10], [255, 69, 58]];
+function wxTempColor(f) {
+  f = Math.min(1, Math.max(0, f));
+  const seg = f * (WX_SCALE.length - 1);
+  const i = Math.min(WX_SCALE.length - 2, Math.floor(seg));
+  const t = seg - i, a = WX_SCALE[i], b = WX_SCALE[i + 1];
+  const c = (k) => Math.round(a[k] + (b[k] - a[k]) * t);
+  return `rgb(${c(0)},${c(1)},${c(2)})`;
+}
+
+// Catmull-Rom -> cubic Bézier for an Apple-smooth temperature curve.
+function wxSmooth(pts) {
+  if (pts.length < 2) return '';
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
 // Hourly temperature sparkline (area + line + rain bars + "now" marker).
 // preserveAspectRatio=none lets it stretch to fill its container width.
 function wxSparkline(day, W, H) {
@@ -280,11 +353,12 @@ function wxSparkline(day, W, H) {
   const padX = 4, padTop = 8, padBot = 6;
   const X = (h) => padX + (h / 23) * (W - 2 * padX);
   const Y = (t) => padTop + (1 - (t - tmin) / range) * (H - padTop - padBot);
-  const pts = hrs.map((x) => `${X(x.h).toFixed(1)},${Y(x.t).toFixed(1)}`);
-  const area = `M${X(0).toFixed(1)},${(H - padBot).toFixed(1)} L${pts.join(' L')} L${X(23).toFixed(1)},${(H - padBot).toFixed(1)} Z`;
+  const pts = hrs.map((x) => ({ x: X(x.h), y: Y(x.t) }));
+  const line = wxSmooth(pts);
+  const area = `${line} L${X(23).toFixed(1)},${(H - padBot).toFixed(1)} L${X(0).toFixed(1)},${(H - padBot).toFixed(1)} Z`;
   const bars = hrs.filter((x) => x.p > 5).map((x) => {
     const bh = (x.p / 100) * (H - padTop - padBot);
-    return `<rect class="wx-rain" x="${(X(x.h) - 2.4).toFixed(1)}" y="${(H - padBot - bh).toFixed(1)}" width="4.8" height="${bh.toFixed(1)}" rx="1"/>`;
+    return `<rect class="wx-rain" x="${(X(x.h) - 2.4).toFixed(1)}" y="${(H - padBot - bh).toFixed(1)}" width="4.8" height="${bh.toFixed(1)}" rx="2"/>`;
   }).join('');
   let now = '';
   if (day.date === wxKey(new Date())) {
@@ -292,14 +366,15 @@ function wxSparkline(day, W, H) {
     now = `<line class="wx-now" x1="${nx}" y1="0" x2="${nx}" y2="${H}"/>`;
   }
   return `<svg class="wx-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-    ${bars}<path class="wx-area" d="${area}"/><polyline class="wx-line" points="${pts.join(' ')}"/>${now}
+    ${bars}<path class="wx-area" d="${area}"/><path class="wx-line" d="${line}"/>${now}
   </svg>`;
 }
 
+// Apple-style vertical tile: label · icon · temp · precip.
 function wxPartChip(p) {
   const rain = p.pop >= 20 ? `<span class="wx-pp">💧${p.pop}%</span>` : '';
-  return `<div class="wx-part"><span class="wx-pe">${p.emoji}</span>` +
-    `<span class="wx-pl">${p.label}</span><span class="wx-pt">${p.temp}°</span>${rain}</div>`;
+  return `<div class="wx-part"><span class="wx-pl">${p.label}</span>` +
+    `<span class="wx-pe">${wxIcon(p.emoji)}</span><span class="wx-pt">${p.temp}°</span>${rain}</div>`;
 }
 
 // Full-width weather panel for the Agenda day headers.
@@ -311,7 +386,7 @@ function wxAgendaPanel(day) {
   const parts = (day.parts || []).map(wxPartChip).join('');
   return `<div class="wx-detail">
     <div class="wx-top">
-      <span class="wx-big">${day.emoji}</span>
+      <span class="wx-big">${wxIcon(day.code != null ? day.code : day.emoji)}</span>
       <span class="wx-hilo"><b>${Math.round(day.hi)}°</b><i>${Math.round(day.lo)}°</i></span>
       <div class="wx-spark-wrap">${wxSparkline(day, 360, 46)}</div>
       <span class="wx-sun">${wxSunLine(day)}</span>
@@ -329,7 +404,7 @@ function wxWeekPanel(day) {
       `<span class="e">${p.emoji}</span><span class="t">${p.temp}°</span>${rain}</div>`;
   }).join('');
   return `<div class="wx-wk">
-    <div class="wx-wk-hilo">${day.emoji} <b>${Math.round(day.hi)}°</b> ${Math.round(day.lo)}°</div>
+    <div class="wx-wk-hilo">${wxIcon(day.code != null ? day.code : day.emoji)} <b>${Math.round(day.hi)}°</b> ${Math.round(day.lo)}°</div>
     <div class="wx-wk-spark">${wxSparkline(day, 150, 30)}</div>
     <div class="wx-wk-parts">${rows}</div>
     <div class="wx-wk-sun">${wxSunLine(day)}</div>
@@ -960,7 +1035,7 @@ async function loadWeather() {
     if (!w || w.unavailable) return;
     weatherFull = w;
     if (w.code != null) applySky(w.code);
-    $('#wIcon').textContent = w.emoji;
+    $('#wIcon').innerHTML = wxIcon(w.code != null ? w.code : w.emoji);
     $('#wTemp').textContent = Math.round(w.temp) + '°';
     const feels = w.feels != null ? ` · feels ${Math.round(w.feels)}°` : '';
     $('#wHiLo').textContent = `H ${Math.round(w.hi)}° L ${Math.round(w.lo)}°${feels}`;
@@ -989,7 +1064,7 @@ function renderWeatherScreen() {
     ? `<div class="ws-aqi"><span class="aqi-dot" style="background:${w.aqi.color}"></span>AQI ${w.aqi.value} · ${w.aqi.category}</div>`
     : '';
   const now = `<div class="ws-now">
-    <div class="ws-now-emoji">${w.emoji}</div>
+    <div class="ws-now-emoji">${wxIcon(w.code != null ? w.code : w.emoji, 'wxi-xl')}</div>
     <div class="ws-now-main">
       <div class="ws-now-temp">${Math.round(w.temp)}°</div>
       <div class="ws-now-cond">${w.text}</div>
@@ -1002,24 +1077,42 @@ function renderWeatherScreen() {
     </div>
   </div>`;
 
-  const days = w.daily.map((d, i) => {
+  // Today's hourly graph + the four time-of-day tiles.
+  const hourly = `<div class="ws-card ws-hourly">
+    <div class="ws-card-h">Today</div>
+    <div class="ws-spark">${wxSparkline(today, 760, 86)}</div>
+    <div class="ws-parts">${(today.parts || []).map(wxPartChip).join('')}</div>
+  </div>`;
+
+  // 7-day list with Apple-style temperature range bars (lo -> hi within the
+  // whole week's span), plus a marker for where "now" sits on today's bar.
+  const lows = w.daily.map((d) => d.lo), highs = w.daily.map((d) => d.hi);
+  const wkMin = Math.min(...lows), wkMax = Math.max(...highs);
+  const span = Math.max(1, wkMax - wkMin);
+  const frac = (t) => Math.min(1, Math.max(0, (t - wkMin) / span));
+  const pct = (t) => frac(t) * 100;
+  const rows = w.daily.map((d, i) => {
     const dd = new Date(d.date + 'T00:00:00');
-    const name = i === 0 ? 'Today' : dd.toLocaleDateString([], { weekday: 'long' });
-    const sub = dd.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    const parts = (d.parts || []).map(wxPartChip).join('');
-    return `<div class="ws-day">
-      <div class="ws-day-head">
-        <span class="ws-emoji">${d.emoji}</span>
-        <span class="ws-name">${name} <small>${sub}</small></span>
-        <span class="ws-sun-sm">${sunLine(d)}</span>
-        <span class="ws-hilo"><b>${Math.round(d.hi)}°</b> <i>${Math.round(d.lo)}°</i></span>
-      </div>
-      <div class="ws-spark">${wxSparkline(d, 600, 64)}</div>
-      <div class="ws-parts">${parts}</div>
+    const name = i === 0 ? 'Today' : dd.toLocaleDateString([], { weekday: 'short' });
+    const L = pct(d.lo), R = pct(d.hi);
+    const nowDot = i === 0 && w.temp != null
+      ? `<span class="ws-range-now" style="left:${pct(w.temp).toFixed(1)}%"></span>` : '';
+    const pop = Math.max(...(d.parts || []).map((p) => p.pop || 0), 0);
+    const rain = pop >= 20 ? `<span class="ws-row-pop">💧${pop}%</span>` : '';
+    return `<div class="ws-row">
+      <span class="ws-row-day">${name}</span>
+      <span class="ws-row-ico">${wxIcon(d.code != null ? d.code : d.emoji)}</span>
+      ${rain}
+      <span class="ws-row-lo">${Math.round(d.lo)}°</span>
+      <span class="ws-range"><span class="ws-range-fill" style="left:${L.toFixed(1)}%;right:${(100 - R).toFixed(1)}%;--c1:${wxTempColor(frac(d.lo))};--c2:${wxTempColor(frac(d.hi))}"></span>${nowDot}</span>
+      <span class="ws-row-hi">${Math.round(d.hi)}°</span>
     </div>`;
   }).join('');
+  const list = `<div class="ws-card ws-forecast">
+    <div class="ws-card-h">7-Day Forecast</div>${rows}
+  </div>`;
 
-  body.innerHTML = now + days;
+  body.innerHTML = now + hourly + list;
 }
 
 function openWeatherScreen() {

@@ -261,11 +261,15 @@ main { flex: 1; position: relative; overflow: hidden; }
 .dow { text-align: center; color: var(--muted); font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: .3px; }
 
 /* ---- Detailed weather -------------------------------------------------- */
-.wx-line { fill: none; stroke: var(--accent); stroke-width: 2.5; vector-effect: non-scaling-stroke;
+/* SF-style inline weather icons scale to the parent font-size */
+.wxi { width: 1em; height: 1em; display: inline-block; vertical-align: -.16em; }
+.wxi-xl { width: 1.1em; height: 1.1em; }
+
+.wx-line { fill: none; stroke: url(#wxLine); stroke-width: 3; vector-effect: non-scaling-stroke;
   stroke-linejoin: round; stroke-linecap: round; }
-.wx-area { fill: var(--accent); opacity: .12; }
-.wx-rain { fill: var(--accent-2); opacity: .55; }
-.wx-now  { stroke: var(--ink); opacity: .35; stroke-width: 1.5; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.wx-area { fill: url(#wxArea); }
+.wx-rain { fill: #0a84ff; opacity: .5; }
+.wx-now  { stroke: var(--ink); opacity: .3; stroke-width: 1.5; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
 
 .wx-detail {
   background: var(--sheen), color-mix(in srgb, var(--accent) 7%, var(--glass-strong));
@@ -283,13 +287,13 @@ main { flex: 1; position: relative; overflow: hidden; }
 .wx-spark { width: 100%; height: 100%; display: block; }
 .wx-parts { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .wx-part {
-  flex: 1; min-width: 110px; background: rgba(255, 255, 255, .5); border: 1px solid var(--glass-brd);
-  border-radius: 12px; padding: 8px 12px; display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 90px; background: rgba(255, 255, 255, .5); border: 1px solid var(--glass-brd);
+  border-radius: 14px; padding: 12px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
-.wx-pe { font-size: 22px; }
-.wx-pl { color: var(--muted); font-weight: 600; font-size: 15px; }
-.wx-pt { margin-left: auto; font-weight: 700; font-size: 20px; }
-.wx-pp { color: var(--accent); font-weight: 600; font-size: 14px; }
+.wx-pe { font-size: 30px; line-height: 1; }
+.wx-pl { color: var(--muted); font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: .3px; }
+.wx-pt { font-weight: 700; font-size: 22px; letter-spacing: -.4px; }
+.wx-pp { color: #0a84ff; font-weight: 600; font-size: 13px; }
 
 .wx-wk { margin-bottom: 8px; }
 .wx-wk-hilo { text-align: center; font-size: 15px; color: var(--muted); font-weight: 600; }
@@ -449,6 +453,45 @@ main { flex: 1; position: relative; overflow: hidden; }
 .ws-sun { font-size: 18px; color: var(--muted); font-weight: 500; }
 .ws-aqi { display: flex; align-items: center; gap: 8px; justify-content: flex-end; font-size: 18px; color: var(--muted); font-weight: 600; }
 .aqi-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
+.ws-now-emoji { font-size: 72px; }
+
+/* Apple-style weather cards: today's hourly + the 7-day range list */
+.ws-card {
+  background: var(--sheen), var(--glass); border: 1px solid var(--glass-brd); border-radius: 22px;
+  padding: 18px 22px; margin-bottom: 16px; box-shadow: var(--glass-hi), var(--glass-shadow-sm);
+}
+.ws-card-h {
+  font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .5px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+.ws-hourly .ws-spark { height: 96px; margin: 6px 0 14px; }
+
+.ws-row {
+  display: flex; align-items: center; gap: 14px; padding: 12px 2px;
+  border-bottom: 1px solid var(--line); font-size: 22px;
+}
+.ws-row:last-child { border-bottom: none; }
+.ws-row-day { width: 92px; font-weight: 600; letter-spacing: -.3px; }
+.ws-row-ico { font-size: 30px; width: 36px; text-align: center; }
+.ws-row-pop { color: #0a84ff; font-weight: 600; font-size: 15px; min-width: 52px; }
+.ws-row-lo { width: 48px; text-align: right; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ws-row-hi { width: 48px; text-align: left; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ws-range {
+  position: relative; flex: 1; height: 8px; border-radius: 980px;
+  background: var(--fill-2); overflow: visible; margin-left: auto;
+}
+.ws-range-fill {
+  position: absolute; top: 0; bottom: 0; border-radius: 980px;
+  /* Gradient endpoints are set inline per day (color at that day's lo -> hi on
+     the shared week scale), so the same temperature reads the same color in
+     every row — the Apple Weather range-bar look. */
+  background: linear-gradient(90deg, var(--c1, #34c759), var(--c2, #ff9f0a));
+}
+.ws-range-now {
+  position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%;
+  transform: translate(-50%, -50%); background: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, .18), 0 1px 4px rgba(0, 0, 0, .3);
+}
 
 /* Scheduled brightness dimmer ------------------------------------------- */
 #dimmer {

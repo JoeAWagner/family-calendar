@@ -7,6 +7,20 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+  <!-- Shared SVG gradients for the weather temperature curves (referenced from CSS) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="wxArea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff9f0a" stop-opacity=".34" />
+      <stop offset="1" stop-color="#ff9f0a" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="wxLine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff453a" />
+      <stop offset=".45" stop-color="#ff9f0a" />
+      <stop offset=".72" stop-color="#ffd60a" />
+      <stop offset="1" stop-color="#30b0c7" />
+    </linearGradient>
+  </defs></svg>
+
   <div id="app">
     <header>
       <div id="clock">
