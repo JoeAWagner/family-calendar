@@ -506,8 +506,12 @@ main { flex: 1; position: relative; overflow: hidden; }
   position: fixed; inset: 0; background: #000; z-index: 100;
   display: flex; align-items: center; justify-content: center;
 }
-#ssImg { max-width: 100%; max-height: 100%; object-fit: contain; transition: opacity 1s;
-  animation: kenburns 24s ease-in-out infinite alternate; }
+/* Two stacked layers crossfade so a photo change never flashes black */
+.ss-photo {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  object-fit: contain; opacity: 0; transition: opacity 1.1s ease;
+  animation: kenburns 24s ease-in-out infinite alternate;
+}
 @keyframes kenburns { from { transform: scale(1) translateY(0); } to { transform: scale(1.09) translateY(-1.2%); } }
 
 /* The overlay is a transparent layer; widgets float in the bottom-left so

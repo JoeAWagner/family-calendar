@@ -622,6 +622,7 @@ $('#clearDoodle').addEventListener('click', () => ctx.clearRect(0, 0, canvas.wid
 
 // ---- Photo screensaver -----------------------------------------------------
 let idleTimer = null, ssTimer = null, photos = [], photoIdx = 0;
+let ssTop = 0, ssFails = 0; // which photo layer is visible; consecutive load failures
 
 function shufflePhotos() { // Fisher–Yates, in place
   for (let k = photos.length - 1; k > 0; k--) {
@@ -630,8 +631,13 @@ function shufflePhotos() { // Fisher–Yates, in place
   }
 }
 async function loadPhotos() {
-  try { photos = await api('/api/photos'); } catch { photos = []; }
-  shufflePhotos();
+  // Only adopt a new list when the fetch actually returns photos. A transient
+  // iCloud/network hiccup makes /api/photos return [] (or throw); discarding the
+  // working list on that would black out the screensaver until the next refresh.
+  try {
+    const next = await api('/api/photos');
+    if (Array.isArray(next) && next.length) { photos = next; shufflePhotos(); }
+  } catch { /* keep the photos we already have */ }
 }
 
 function resetIdle() {
@@ -652,34 +658,42 @@ function startScreensaver() {
   // clock, weather, and next event.
   if (photos.length) showPhoto(photoIdx % photos.length);
 }
-// Each photo shows for a consistent photoMs regardless of file size: we preload
-// the *next* image during the current one's window so the swap is instant.
+// Two stacked <img> layers crossfade between photos, so a transition never
+// passes through black and a slow/broken image can be skipped invisibly: we
+// decode the next photo off-screen first, then fade it in over the old one.
 function showPhoto(i) {
-  const img = $('#ssImg');
+  if (!photos.length) return;
+  const imgs = [$('#ssImg'), $('#ssImg2')];
   // Completed a full pass — reshuffle for a fresh order (avoid repeating the seam).
   if (photos.length > 2 && i > 0 && i % photos.length === 0) {
-    const lastSrc = img.getAttribute('src');
+    const lastSrc = imgs[ssTop].getAttribute('src');
     shufflePhotos();
     if (photos[0] === lastSrc) [photos[0], photos[1]] = [photos[1], photos[0]];
   }
   photoIdx = i % photos.length;
   const src = photos[photoIdx];
-  const swap = () => { img.src = src; img.style.opacity = 1; };
-  if (img.getAttribute('src') && img.style.opacity !== '0') {
-    img.style.opacity = 0;
-    setTimeout(swap, 350); // fade out, then swap in the (already cached) image
-  } else {
-    swap();
-  }
-  // Skip an image that fails to load (e.g. a transient iCloud hiccup).
-  img.onerror = () => { clearTimeout(ssTimer); ssTimer = setTimeout(() => showPhoto(i + 1), 300); };
-  updateScreensaverInfo();
-
-  if (photos.length > 1) {
-    new Image().src = photos[(i + 1) % photos.length]; // warm the cache for the next one
-    clearTimeout(ssTimer);
-    ssTimer = setTimeout(() => showPhoto(i + 1), photoMs());
-  }
+  const scheduleNext = (delay) => {
+    if (photos.length > 1) { clearTimeout(ssTimer); ssTimer = setTimeout(() => showPhoto(i + 1), delay); }
+  };
+  const pre = new Image();
+  pre.onload = () => {
+    ssFails = 0;
+    const cur = imgs[ssTop], nxt = imgs[ssTop ^ 1];
+    nxt.src = src;
+    // next frame so the browser registers the src before the opacity transition
+    requestAnimationFrame(() => { nxt.style.opacity = 1; cur.style.opacity = 0; });
+    ssTop ^= 1;
+    if (photos.length > 1) new Image().src = photos[(i + 1) % photos.length]; // warm the next
+    updateScreensaverInfo();
+    scheduleNext(photoMs());
+  };
+  pre.onerror = () => {
+    // Skip a bad image. If the whole list is failing (e.g. iCloud is down), back
+    // off to the normal interval instead of hammering through black.
+    ssFails++;
+    scheduleNext(ssFails > photos.length ? photoMs() : 500);
+  };
+  pre.src = src;
 }
 // The next few time-of-day forecast slots (today, rolling into tomorrow).
 function upcomingParts(max) {
