@@ -217,6 +217,16 @@ app.post('/api/reboot', (req, res) => {
   });
 });
 
+// Restart NetworkManager to recover a dropped Wi-Fi/network connection without
+// a full reboot. Only external interfaces bounce; loopback (this request) is
+// unaffected, so the response still reaches the kiosk.
+app.post('/api/restart-network', (req, res) => {
+  exec(SUDO + 'systemctl restart NetworkManager', { timeout: 20000 }, (err, _o, stderr) => {
+    if (err) return res.status(500).json({ ok: false, error: (stderr || err.message).trim() });
+    res.json({ ok: true });
+  });
+});
+
 app.get('/api/auth/login', (req, res) => {
   if (!oauth) return res.status(400).send('No Google credentials configured.');
   const url = oauth.generateAuthUrl({ access_type: 'offline', prompt: 'consent', scope: SCOPES });

@@ -100,7 +100,7 @@ chmod +x "$APP_DIR/update.sh"
 # Let the app restart the service, trigger updates, and reboot without a password
 # (for the update timer and the Settings screen's Check-for-updates / Reboot buttons).
 sudo tee /etc/sudoers.d/familycal >/dev/null <<EOF
-$TARGET_USER ALL=(root) NOPASSWD: /bin/systemctl restart familycal, /usr/bin/systemctl restart familycal, /bin/systemctl start familycal-update.service, /usr/bin/systemctl start familycal-update.service, /bin/systemctl reboot, /usr/bin/systemctl reboot
+$TARGET_USER ALL=(root) NOPASSWD: /bin/systemctl restart familycal, /usr/bin/systemctl restart familycal, /bin/systemctl start familycal-update.service, /usr/bin/systemctl start familycal-update.service, /bin/systemctl reboot, /usr/bin/systemctl reboot, /bin/systemctl restart NetworkManager, /usr/bin/systemctl restart NetworkManager
 EOF
 sudo chmod 440 /etc/sudoers.d/familycal
 sudo tee /etc/systemd/system/familycal-update.service >/dev/null <<EOF

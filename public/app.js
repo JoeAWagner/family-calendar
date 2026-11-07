@@ -203,6 +203,14 @@ async function rebootPi() {
   msg.textContent = 'Rebooting… the wall will come back in ~30s.';
   await fetch('/api/reboot', { method: 'POST' }).catch(() => {});
 }
+async function restartNetwork() {
+  const btn = $('#restartNet'), msg = $('#sysMsg');
+  btn.disabled = true; msg.textContent = 'Reconnecting Wi‑Fi… this takes a few seconds.';
+  const r = await fetch('/api/restart-network', { method: 'POST' })
+    .then((x) => x.json()).catch(() => ({ ok: false, error: 'no response' }));
+  msg.textContent = r.ok ? '✓ Wi‑Fi restarted' : '⚠️ ' + (r.error || 'restart failed');
+  setTimeout(() => { btn.disabled = false; }, 5000);
+}
 $('#settingsBtn')?.addEventListener('click', openSettings);
 $('#setClose')?.addEventListener('click', closeSettings);
 $('#setSave')?.addEventListener('click', saveSettings);
@@ -210,6 +218,7 @@ $('#radarReconnect')?.addEventListener('click', reconnectRadar);
 $('#zipLookup')?.addEventListener('click', lookupZip);
 $('#checkUpdate')?.addEventListener('click', checkUpdate);
 $('#rebootBtn')?.addEventListener('click', rebootPi);
+$('#restartNet')?.addEventListener('click', restartNetwork);
 ['#setNear', '#setDwell', '#setEmpty', '#setAway', '#setDim', '#setIdle', '#setPhoto']
   .forEach((s) => $(s)?.addEventListener('input', syncSettingLabels));
 
