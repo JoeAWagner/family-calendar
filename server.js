@@ -303,15 +303,29 @@ app.delete('/api/events/:id', async (req, res) => {
   }
 });
 
-// Photo gallery: local files in ./photos, and/or an iCloud shared album.
+// Recursively list image files under PHOTOS_DIR, so photos can be organized in
+// subfolders (e.g. photos/shared/ managed by the Mac sync, photos/ for ones
+// added by hand). Hidden files/dirs are skipped.
+function listLocalPhotos(dir, rel = '') {
+  const out = [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  for (const e of entries) {
+    if (e.name.startsWith('.')) continue;
+    const r = rel ? rel + '/' + e.name : e.name;
+    if (e.isDirectory()) out.push(...listLocalPhotos(path.join(dir, e.name), r));
+    else if (/\.(jpe?g|png|webp|gif)$/i.test(e.name)) {
+      out.push('/photos/' + r.split('/').map(encodeURIComponent).join('/'));
+    }
+  }
+  return out;
+}
+
+// Photo gallery: local files in ./photos (recursively), and/or an iCloud shared album.
 app.get('/api/photos', async (req, res) => {
   if (DEMO) return res.json(['/demo/photo1.svg', '/demo/photo2.svg', '/demo/photo3.svg']);
   const out = [];
-  if (fs.existsSync(PHOTOS_DIR)) {
-    out.push(...fs.readdirSync(PHOTOS_DIR)
-      .filter((f) => /\.(jpe?g|png|webp|gif)$/i.test(f))
-      .map((f) => '/photos/' + encodeURIComponent(f)));
-  }
+  if (fs.existsSync(PHOTOS_DIR)) out.push(...listLocalPhotos(PHOTOS_DIR));
   if (album.albumConfigured()) {
     try {
       const guids = await album.listGuids();

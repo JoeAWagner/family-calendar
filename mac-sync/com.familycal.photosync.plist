@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Family Calendar photo sync — launchd job (runs on your Mac).
+  Install (see README.md):
+    1) Edit the ProgramArguments path below to point at your copy of sync-photos.sh.
+    2) cp com.familycal.photosync.plist ~/Library/LaunchAgents/
+    3) launchctl load ~/Library/LaunchAgents/com.familycal.photosync.plist
+  It then runs at login and every hour. Logs: ~/Library/Logs/familycal-photosync.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.familycal.photosync</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/REPLACE/WITH/PATH/TO/family-calendar/mac-sync/sync-photos.sh</string>
+  </array>
+
+  <!-- launchd starts with a bare PATH; add where Homebrew / pipx install tools. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/Users/CHANGE_ME/.local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StartInterval</key>
+  <integer>3600</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/CHANGE_ME/Library/Logs/familycal-photosync.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/CHANGE_ME/Library/Logs/familycal-photosync.log</string>
+</dict>
+</plist>
