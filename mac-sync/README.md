@@ -66,6 +66,12 @@ refresh (within ~30 min), or reboot it to see them immediately.
 
 ## Schedule it (so it stays in sync automatically)
 
+> **Put `sync-photos.sh` outside `~/Documents`, `~/Desktop`, and `~/Downloads`.**
+> Those are privacy-protected folders. A manual run works from them, but launchd
+> (a background daemon) is blocked from reading scripts there and fails with
+> `Bootstrap failed: 5: Input/output error`. A plain folder like `~/familycal/`
+> works fine.
+
 1. Edit `com.familycal.photosync.plist` — the only thing to change is the
    **ProgramArguments** path, to the full path of your `sync-photos.sh`.
    (Find it with: `find ~ -name sync-photos.sh -path '*mac-sync*'`.)
