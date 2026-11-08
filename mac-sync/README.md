@@ -12,13 +12,17 @@ still shows too — the sync only manages the `shared/` subfolder.
 ## One-time setup (on the Mac)
 
 ### 1. Install osxphotos
-It reads the Photos library and exports album photos.
+It reads the Photos library and exports album photos. osxphotos is a Python tool
+(there is no Homebrew formula for it), so install it with pipx:
 ```bash
-brew install osxphotos
-# or, without Homebrew:
-#   pipx install osxphotos
-#   pip3 install --user osxphotos
+brew install pipx
+pipx ensurepath
+# open a NEW Terminal window so PATH updates, then:
+pipx install osxphotos
+osxphotos --version        # confirm it installed
 ```
+Alternatives: `uv tool install osxphotos` if you use uv, or a standalone macOS
+build from https://github.com/RhetTbull/osxphotos/releases
 
 ### 2. Give Terminal "Full Disk Access"
 osxphotos needs to read the Photos library.
