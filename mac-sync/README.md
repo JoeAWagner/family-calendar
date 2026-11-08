@@ -66,24 +66,24 @@ refresh (within ~30 min), or reboot it to see them immediately.
 
 ## Schedule it (so it stays in sync automatically)
 
-1. Edit `com.familycal.photosync.plist`:
-   - Set the **ProgramArguments** path to the full path of your `sync-photos.sh`.
-   - Replace **`CHANGE_ME`** with your Mac username (two spots), and make sure the
-     `PATH` includes where osxphotos installed (`/opt/homebrew/bin` for Homebrew on
-     Apple Silicon, `/usr/local/bin` on Intel, `~/.local/bin` for pipx/pip).
-2. Install and start it:
+1. Edit `com.familycal.photosync.plist` — the only thing to change is the
+   **ProgramArguments** path, to the full path of your `sync-photos.sh`.
+   (Find it with: `find ~ -name sync-photos.sh -path '*mac-sync*'`.)
+2. Install and start it (use `bootstrap`/`bootout`; the old `load`/`unload` is
+   deprecated and gives cryptic "Input/output error" messages):
    ```bash
    cp com.familycal.photosync.plist ~/Library/LaunchAgents/
-   launchctl load ~/Library/LaunchAgents/com.familycal.photosync.plist
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.familycal.photosync.plist
+   launchctl list | grep familycal      # confirm it's loaded
    ```
    It runs at login and every hour. Watch the log:
    ```bash
-   tail -f ~/Library/Logs/familycal-photosync.log
+   tail -f /tmp/familycal-photosync.log
    ```
 
 To stop it:
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.familycal.photosync.plist
+launchctl bootout gui/$(id -u)/com.familycal.photosync
 ```
 
 ## Notes

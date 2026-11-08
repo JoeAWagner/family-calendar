@@ -13,6 +13,10 @@
 #   5) Schedule it with the included launchd job (see README).
 set -euo pipefail
 
+# launchd runs with a bare PATH, so make sure the tools we need are findable
+# (pipx installs osxphotos into ~/.local/bin; Homebrew into /opt/homebrew/bin).
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 # ---- Config — edit these ---------------------------------------------------
 # Exact Shared Album name as it appears in Photos. List names with:  osxphotos albums
 ALBUM="${FAMILYCAL_ALBUM:-Family Calendar}"
